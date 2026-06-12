@@ -1,0 +1,1 @@
+http://geoserver.gis.pr.gov:80/geoserver/wfs?request=GetFeature&typeName=pr_geodata:g03_legales_municipios_edicion_octubre2015&outputFormat=SHAPE-ZIP

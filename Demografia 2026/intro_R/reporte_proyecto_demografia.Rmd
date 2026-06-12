@@ -1,0 +1,112 @@
+---
+output:
+  word_document: default
+  pdf_document: default
+cite-method: natbib
+number-sections: true
+number-depth: 2
+bibliography: references21.bib
+---
+
+```{r include=FALSE}
+##Indicar todas las librerias que se están utlizando.
+##install.packages("tidyverse")
+##install.packages("knitr")
+##install.packages("flextable'")
+
+
+
+library(tidyverse)
+library(knitr)
+library(flextable)
+
+
+
+```
+
+# Título
+
+#### Autor
+
+#### Afiliación
+
+## Resumen
+
+Incluya un resumen de no más de 250 palabras que resuma la investigación y los resultados y destaque la importancia de los hallazgos. El resumen no debe contener expresiones matemáticas largas, notación complicada o referencias.
+
+Palabras claves:
+
+## Introducción
+
+Divida el cuerpo principal del capítulo con los encabezados de sección y sub-sección apropiados. Utilice números de sección y enumere los encabezados. La primera letra de cada palabra del encabezado debe ser mayúscula, así como las preposiciones de cuatro o más letras (por ejemplo, Acerca de, Entre). Comience el texto con el encabezado principal "Introducción". No use subtítulos a menos que una sección se pueda dividir en dos o más sub-secciones.
+
+Para las referencias: Todas las obras citadas en el texto deben aparecer en la lista de referencias. En el encabezado principal Referencias, escriba doble espacio en cada entrada y use una sangría colgante. La lista de referencias sigue principalmente el estilo con autor y año, natbib. [@petris2009dynamic]
+
+### Subsección 1
+
+Alguna subsección que considere necesaria.
+
+### Subseccción 2
+
+Alguna subsección que considere necesaria.
+
+## Metodología
+
+### Subsección 1
+
+Alguna subsección que considere necesaria.
+
+### Subseccción 2
+
+Alguna subsección que considere necesaria.
+
+## Resultados
+
+## Discusión
+
+Formato para las tablas.
+
+```{r include=FALSE}
+dat <- mtcars[, 1:6] %>% 
+    mutate(model = rownames(mtcars)) %>%
+    select(ncol(.), 1:(ncol(.)-1))
+
+set_flextable_defaults(
+  font.size = 10, theme_fun = theme_vanilla,
+  padding = 6,
+  background.color = "#FFFFF1")
+
+
+```
+
+```{r echo=FALSE}
+f=head(dat) %>%
+    regulartable() %>%
+    autofit() %>%
+    add_footer(., model = "* The data was extracted from the 1974 Motor Trend US magazine, and comprises fuel consumption and 10 aspects of automobile design and performance for 32 automobiles (1973–74 models).") %>%
+    merge_at(., i = 1, j = 1:ncol(dat), part = "footer") %>%
+    add_footer(., model = "** This is a data frame with 32 observations on 11 (numeric) variables. The source is from Henderson and Velleman (1981), Building multiple regression models interactively. Biometrics, 37, 391–411.", top = F) %>%
+    merge_at(., i=2, j = 1:ncol(dat), part = "footer") %>%
+    add_header(., model = "Table1. First six car models in the mtcars dataset", top = T) %>%
+    merge_at(., i = 1, j = 1:ncol(dat), part = "header") %>%
+    align(., i = 1, j = 1:ncol(dat), align = "center", part = "header") 
+
+#f
+
+ft= color(f, color = "#0099CC", part = "header")
+
+ft
+ 
+```
+
+Formato para imágenes
+
+```{r echo=FALSE, fig.height=3,fig.width=4}
+plot(dat$mpg,xlab = "x",ylab = "y",main = "Figura 1: Ejemplo",col.main="#0099CC")
+```
+
+## Recomendaciones
+
+Esta sección es para escribir recomendaciones sobre el problema analizado.
+
+## Referencias
