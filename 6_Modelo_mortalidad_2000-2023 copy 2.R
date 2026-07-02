@@ -1,4 +1,5 @@
-# Cambio usuario 2
+# Cambio usuario 1
+x1 = 2
 ################################################
 ### Modelo para mortalidad en areas pequeñas ###
 ################################################
