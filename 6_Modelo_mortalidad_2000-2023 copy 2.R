@@ -554,9 +554,9 @@ sigma <- 1 / sqrt(fit$summary.hyperpar$mean)
 inla.list.models("prior")
 
 #Abre la documentación de una prior específica
-#inla.doc("loggamma") #log-Gamma/loggamma/parameters = shape and rate
-#inla.doc("gaussian")
-#inla.doc("pc")
+inla.doc("loggamma") #log-Gamma/loggamma/parameters = shape and rate
+inla.doc("gaussian")
+inla.doc("pc")
 
 #Lista todos los nombres de priors disponibles en INLA
 names(inla.models()$prior)
@@ -1131,7 +1131,7 @@ samples_long <- samples %>%
   pivot_longer(-prior, names_to = "hyperpar", values_to = "value")
 
 # Para ver cuáles son los hiperparámetros que estamos usando 
-unique(samples_long$hyperpar)
+unique(muestras_long$hyperpar)
 
 p1 <- ggplot(samples_long, aes(x = value, fill = prior)) +
   geom_histogram(bins = 80, alpha = 0.6, position = "identity",
