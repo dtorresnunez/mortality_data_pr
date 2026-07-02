@@ -9,6 +9,8 @@
 # → Clic en el botón Commit. Se abre una ventana, escribes el mensaje ("nngn. comentario") en el recuadro de arriba, y le das al botón Commit de esa ventana.
 # git push origin main
 # → Clic en la flecha ↑ verde (Push), en esa misma ventana o en el panel.
+# Sugerencia de trabajo: cada quien tiene su propio archivo, o si necesitamos realmente un único archivo,
+# trabajar en tiempos disjuntos y no alterar lo que otra persona trabeje.
 ################################################
 ### Modelo para mortalidad en areas pequeñas ###
 ################################################
