@@ -3,7 +3,7 @@
 # git commit -m "nngn. comentario"
 # git push origin main
 # Explicación:
-# git add "6_Modelo...copy 2.R"
+# git add "6_Modelo_mortalidad_2000-2023 copy 2.R"
 # → En el panel Git (arriba a la derecha), marca la casilla ☑ a la izquierda del archivo. Eso es exactamente el git add. Marcar la casilla = "add".
 # git commit -m "nngn. comentario"
 # → Clic en el botón Commit. Se abre una ventana, escribes el mensaje ("nngn. comentario") en el recuadro de arriba, y le das al botón Commit de esa ventana.
