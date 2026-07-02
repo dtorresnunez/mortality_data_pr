@@ -1,4 +1,4 @@
-# Cambio usuario 22
+# Cambio usuario 2
 ################################################
 ### Modelo para mortalidad en areas pequeñas ###
 ################################################
