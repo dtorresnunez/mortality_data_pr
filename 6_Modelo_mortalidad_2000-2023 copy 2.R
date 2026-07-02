@@ -16,8 +16,8 @@
 ################################################
 #6
 #Demotools para la tabla de vida
-install.packages("rstan", repos = c("https://mc-stan.org/r-packages/", getOption("repos")))
-remotes::install_github("timriffe/DemoTools")
+# install.packages("rstan", repos = c("https://mc-stan.org/r-packages/", getOption("repos")))
+# remotes::install_github("timriffe/DemoTools")
 
 library(INLA)
 library(SUMMER)
