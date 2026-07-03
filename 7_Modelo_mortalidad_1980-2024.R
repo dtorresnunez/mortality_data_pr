@@ -3,6 +3,8 @@
 ################################################
 #7 - 2026_30_06
 
+HOLA GRUPO!
+
 #Paquetes
 library(INLA)
 library(SUMMER)
