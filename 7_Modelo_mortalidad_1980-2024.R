@@ -3,7 +3,7 @@
 ################################################
 #7 - 2026_30_06
 
-#Trabajo de Prueba 7-3-2026
+#Trabajo de Prueba 7-3-2026 
 
 #Paquetes
 library(INLA)
