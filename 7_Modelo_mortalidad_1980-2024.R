@@ -3,7 +3,7 @@
 ################################################
 #7 - 2026_30_06
 
-#Trabajo de Prueba 7-3-2026 
+#Trabajo de Prueba 7-5-2026 
 
 #Paquetes
 library(INLA)
@@ -54,7 +54,7 @@ periods <- 1980:2024
 #   "75-79", "80-84", "85+"
 # )
 ages <- c(
-  "0", "01-04","05-09", "10-14", "15-19", "20-24",
+  "0", "1-4","5-9", "10-14", "15-19", "20-24",
   "25-29", "30-34", "35-39", "40-44", "45-49",
   "50-54", "55-59", "60-64", "65-69", "70-74",
   "75-79", "80-84", "85+"
@@ -82,7 +82,7 @@ period_quinquenal <- function(year) {
 }
 
 poblacion <- read_csv(
-  file.path(data_dir, "municipios_population_1980_2024.csv"),
+  file.path(data_dir, "municipios_population_1980_2025_redondeo.csv"),
   col_types = cols(
     fips3 = col_character(),
     .default = col_guess()
@@ -91,32 +91,33 @@ poblacion <- read_csv(
   filter(
     year >= 1980, #2000
     year <= 2023,
-    agegrp != 0,
+    agegroup != "Total",
     #sex !=0 #Esto es si solo queremos trabajar en grupo solo con dos sexos, no el total (0).
   ) %>%
   mutate(
     fips3 = str_pad(fips3, width = 3, side = "left", pad = "0"),
-    period = period_quinquenal(year),
-    agegroup = case_when(
-      agegrp == 1  ~ "00-04",
-      agegrp == 2  ~ "05-09",
-      agegrp == 3  ~ "10-14",
-      agegrp == 4  ~ "15-19",
-      agegrp == 5  ~ "20-24",
-      agegrp == 6  ~ "25-29",
-      agegrp == 7  ~ "30-34",
-      agegrp == 8  ~ "35-39",
-      agegrp == 9  ~ "40-44",
-      agegrp == 10 ~ "45-49",
-      agegrp == 11 ~ "50-54",
-      agegrp == 12 ~ "55-59",
-      agegrp == 13 ~ "60-64",
-      agegrp == 14 ~ "65-69",
-      agegrp == 15 ~ "70-74",
-      agegrp == 16 ~ "75-79",
-      agegrp == 17 ~ "80-84",
-      agegrp %in% c(18, 19) ~ "85+"
-    )
+    period = period_quinquenal(year)#,
+    # agegroup = case_when(
+    #   agegrp == 1  ~ "00-04",
+    #   agegrp == 2  ~ "05-09",
+    #   agegrp == 3  ~ "10-14",
+    #   agegrp == 4  ~ "15-19",
+    #   agegrp == 5  ~ "20-24",
+    #   agegrp == 6  ~ "25-29",
+    #   agegrp == 7  ~ "30-34",
+    #   agegrp == 8  ~ "35-39",
+    #   agegrp == 9  ~ "40-44",
+    #   agegrp == 10 ~ "45-49",
+    #   agegrp == 11 ~ "50-54",
+    #   agegrp == 12 ~ "55-59",
+    #   agegrp == 13 ~ "60-64",
+    #   agegrp == 14 ~ "65-69",
+    #   agegrp == 15 ~ "70-74",
+    #   agegrp == 16 ~ "75-79",
+    #   agegrp == 17 ~ "80-84",
+    #   agegrp %in% c(18, 19) ~ "85+" Ya no es necesario porque
+    # municipios_population_1980_2025_redondeo.csv lo incluye
+    # )
   ) %>%
   group_by(fips3, agegroup, sex, period) %>% #year por period, para años sencillos
   summarise(
@@ -155,7 +156,7 @@ defunciones <- read_dta(
     agegroup = as.character(
       cut(
         edad,
-        breaks = c(seq(0, 85, by = 5), Inf), #85?
+        breaks = c(0, 1, seq(5, 85, by = 5), Inf),#c(seq(0, 85, by = 5), Inf), #85?
         labels = ages,
         right = FALSE
       )
@@ -175,9 +176,9 @@ df <- poblacion %>%
 # ------------------------------
 age_params <- tibble(
   agegroup = ages,
-  n_interval = c(rep(5, length(ages) - 1), NA),
+  n_interval = c(1, 4, rep(5, 16), NA),#c(rep(5, length(ages) - 1), NA),
   ax = c(
-    2.0, 2.5, 2.5, 2.5, 2.5,
+    0.1, 1.5, 2.5, 2.5, 2.5, 2.5,
     2.5, 2.5, 2.5, 2.5, 2.5,
     2.5, 2.5, 2.5, 2.5, 2.5,
     2.5, 2.5, NA
