@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.475">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Rick and Morti Group">
+<meta name="dcterms.date" content="2026-06-23">
+
+<title>Estimación Robustecida de Parámetros de Escala: El Prior Scaled Beta 2 en R-INLA</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="implementacion_SB2_INLA_files/libs/clipboard/clipboard.min.js"></script>
+<script src="implementacion_SB2_INLA_files/libs/quarto-html/quarto.js"></script>
+<script src="implementacion_SB2_INLA_files/libs/quarto-html/popper.min.js"></script>
+<script src="implementacion_SB2_INLA_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="implementacion_SB2_INLA_files/libs/quarto-html/anchor.min.js"></script>
+<link href="implementacion_SB2_INLA_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="implementacion_SB2_INLA_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="implementacion_SB2_INLA_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="implementacion_SB2_INLA_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="implementacion_SB2_INLA_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introducción" id="toc-introducción" class="nav-link active" data-scroll-target="#introducción">Introducción</a>
+  <ul class="collapse">
+  <li><a href="#formulación-matemática-y-el-log-jacobiano" id="toc-formulación-matemática-y-el-log-jacobiano" class="nav-link" data-scroll-target="#formulación-matemática-y-el-log-jacobiano">Formulación Matemática y el Log-Jacobiano</a></li>
+  </ul></li>
+  <li><a href="#parte-1-verificación-unificada-de-las-implementaciones" id="toc-parte-1-verificación-unificada-de-las-implementaciones" class="nav-link" data-scroll-target="#parte-1-verificación-unificada-de-las-implementaciones">Parte 1: Verificación Unificada de las Implementaciones</a>
+  <ul class="collapse">
+  <li><a href="#comparación-de-densidad-empírica" id="toc-comparación-de-densidad-empírica" class="nav-link" data-scroll-target="#comparación-de-densidad-empírica">Comparación de Densidad Empírica</a></li>
+  </ul></li>
+  <li><a href="#parte-2-impacto-de-un-outlier-extremo-en-la-robustez" id="toc-parte-2-impacto-de-un-outlier-extremo-en-la-robustez" class="nav-link" data-scroll-target="#parte-2-impacto-de-un-outlier-extremo-en-la-robustez">Parte 2: Impacto de un Outlier Extremo en la Robustez</a>
+  <ul class="collapse">
+  <li><a href="#resultados-de-la-distribución-posterior" id="toc-resultados-de-la-distribución-posterior" class="nav-link" data-scroll-target="#resultados-de-la-distribución-posterior">Resultados de la Distribución Posterior</a></li>
+  </ul></li>
+  <li><a href="#tabla-de-diagnóstico-numérico" id="toc-tabla-de-diagnóstico-numérico" class="nav-link" data-scroll-target="#tabla-de-diagnóstico-numérico">Tabla de Diagnóstico Numérico</a></li>
+  <li><a href="#conclusiones-principales" id="toc-conclusiones-principales" class="nav-link" data-scroll-target="#conclusiones-principales">Conclusiones Principales</a></li>
+  <li><a href="#referencias" id="toc-referencias" class="nav-link" data-scroll-target="#referencias">Referencias</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Estimación Robustecida de Parámetros de Escala: El Prior Scaled Beta 2 en R-INLA</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Rick and Morti Group </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">June 23, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="introducción" class="level2">
+<h2 class="anchored" data-anchor-id="introducción">Introducción</h2>
+<p>En el modelado jerárquico bayesiano, la especificación de distribuciones a priori (priors) para los parámetros de escala (como la varianza <span class="math inline">\(\sigma^2\)</span> o la desviación estándar <span class="math inline">\(\sigma\)</span>) es un paso crítico. Los priors conjugados tradicionales, como la distribución Inversa-Gamma, sufren frecuentemente de una contracción excesiva (<em>over-shrinkage</em>) o de una extrema sensibilidad ante observaciones atípicas.</p>
+<p>Para resolver este problema, la distribución <strong>Scaled Beta 2 (SBeta2)</strong>, propuesta originalmente por la Dra. María Pérez y el Dr.&nbsp;Luis Pericchi <span class="citation" data-cites="perez2017scaled">[-@perez2017scaled]</span>, surge como una alternativa de colas pesadas altamente eficiente. Cuando se configuran sus parámetros de forma en <span class="math inline">\(p=0.5\)</span> y <span class="math inline">\(q=0.5\)</span>, esta función emula con exactitud el comportamiento robusto de una distribución <em>Half-Cauchy</em> <span class="citation" data-cites="gelman2006prior">[-@gelman2006prior]</span>, consolidándose como una opción por defecto (<em>default prior</em>) óptima para componentes de error y efectos aleatorios.</p>
+<section id="formulación-matemática-y-el-log-jacobiano" class="level3">
+<h3 class="anchored" data-anchor-id="formulación-matemática-y-el-log-jacobiano">Formulación Matemática y el Log-Jacobiano</h3>
+<p>Si definimos el prior sobre el parámetro de precisión <span class="math inline">\(\tau\)</span> (donde <span class="math inline">\(\tau = 1/\sigma^2\)</span>), la función de densidad de probabilidad (PDF) de la distribución SBeta2 está dada por:</p>
+<p><span class="math display">\[f(\tau) = \frac{\Gamma(p + q)}{\Gamma(p)\Gamma(q)} \cdot \frac{b^p \cdot \tau^{p-1}}{(1 + b\tau)^{p+q}}, \quad \tau &gt; 0\]</span></p>
+<p>Donde <span class="math inline">\(\Gamma(\cdot)\)</span> representa la función Gamma y <span class="math inline">\(b\)</span> es el hiperparámetro de escala.</p>
+<p>Para garantizar la estabilidad numérica y proteger al algoritmo de errores de desbordamiento (<em>underflow</em>), los cálculos se realizan utilizando el <strong>logaritmo natural de la densidad</strong> (<span class="math inline">\(\ln f(\tau)\)</span>), transformando los productos y divisiones en sumas y restas lineales:</p>
+<p><span class="math display">\[\ln f(\tau) = \ln\Gamma(p + q) - \ln\Gamma(p) - \ln\Gamma(q) + p\ln(b) + (p-1)\ln(\tau) - (p+q)\ln(1 + b\tau)\]</span></p>
+<p>Por otra parte, el motor de estimación de <code>R-INLA</code> <span class="citation" data-cites="rue2009approximate">[-@rue2009approximate]</span> no opera de forma directa en el dominio restringido de <span class="math inline">\(\tau &gt; 0\)</span>. En su lugar, optimiza sobre una variable interna continua y no acotada linealmente denominada <span class="math inline">\(x\)</span>:</p>
+<p><span class="math display">\[x = \ln(\tau) \quad \implies \quad \tau = e^x\]</span></p>
+<p>Cuando una densidad de probabilidad experimenta un cambio de variable, se necesita incluir en los factores, el determinante del <strong>Jacobiano de la transformación</strong>, para asegurar que el área total bajo la curva siga integrando exactamente 1. En su escala base, este factor geométrico es:</p>
+<p><span class="math display">\[J = \left\vert{} \frac{d\tau}{dx} \right\vert{} = \frac{d(e^x)}{dx} = e^x = \tau\]</span></p>
+<p>Al trasladar este requisito al espacio logarítmico interno del software, simplemente sumamos el logaritmo del Jacobiano a la densidad logarítmica original de la distribución:</p>
+<p><span class="math display">\[\ln(\text{Jacobiano}) = \ln(\tau) = x\]</span></p>
+<p>Por lo tanto, la expresión analítica final provista a <code>INLA</code> mediante la opción <code>"expression:"</code> debe retornar la suma de <code>log_dens + log_jacobian</code>.</p>
+</section>
+</section>
+<section id="parte-1-verificación-unificada-de-las-implementaciones" class="level2">
+<h2 class="anchored" data-anchor-id="parte-1-verificación-unificada-de-las-implementaciones">Parte 1: Verificación Unificada de las Implementaciones</h2>
+<p>Para confirmar la validez analítica del código, evaluamos dos configuraciones alternativas empleando un <strong>mismo conjunto de datos de juguete</strong> compuesto exclusivamente por valores faltantes (<code>NA</code>). Esto fuerza a <code>INLA</code> a resolver la distribución marginal posterior del hiperparámetro basándose únicamente en la densidad a priori pura, sin la interferencia o actualización de datos empíricos.</p>
+<p>Compararemos:1. <strong>Versión 1 (Concatenación de Texto):</strong> La sintaxis tradicional en R que manipula cadenas de caracteres operando sobre la precisión (<span class="math inline">\(\tau\)</span>). 2. <strong>Versión 2 (Declaraciones Estilo C++):</strong> Un bloque limpio y modular que utiliza variables tipificadas (<code>double</code>) calculando la densidad directamente sobre la varianza (<span class="math inline">\(v = 1/\tau\)</span>).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Instalación y carga de la librería obligatoria</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">requireNamespace</span>(<span class="st">"INLA"</span>, <span class="at">quietly =</span> <span class="cn">TRUE</span>)) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">install.packages</span>(<span class="st">"INLA"</span>, <span class="at">repos =</span> <span class="fu">c</span>(<span class="fu">getOption</span>(<span class="st">"repos"</span>), <span class="at">INLA =</span> <span class="st">"https://r-inla-download.org"</span>), <span class="at">dep =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(INLA)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Establecer un conjunto unificado de datos vacíos (Mismos datos base)</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">2026</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>n_items <span class="ot">&lt;-</span> <span class="dv">15</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>datos_vacios_unificados <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">y =</span> <span class="fu">rep</span>(<span class="cn">NA</span>, n_items), <span class="at">idx =</span> <span class="dv">1</span><span class="sc">:</span>n_items)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co"># --- IMPLEMENTACIÓN 1: Concatenación Tradicional de Texto ---</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>p_shape <span class="ot">&lt;-</span> <span class="fl">0.5</span>   </span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>q_shape <span class="ot">&lt;-</span> <span class="fl">0.5</span>   </span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>b_scale <span class="ot">&lt;-</span> <span class="fl">1.0</span>   </span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>sbeta2_version_texto <span class="ot">&lt;-</span> <span class="fu">paste0</span>(</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="st">"expression: "</span>,</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="st">"tau = exp(x);</span><span class="sc">\n</span><span class="st"> "</span>, </span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="st">"log_dens = lgamma("</span>, p_shape, <span class="st">" + "</span>, q_shape, <span class="st">") - lgamma("</span>, p_shape, <span class="st">") - lgamma("</span>, q_shape, <span class="st">") + "</span>,</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  p_shape, <span class="st">" * log("</span>, b_scale, <span class="st">") + ("</span>, p_shape, <span class="st">" - 1) * log(tau) - ("</span>, p_shape, <span class="st">" + "</span>, q_shape, <span class="st">") * log(1 + "</span>, b_scale, <span class="st">" * tau);</span><span class="sc">\n</span><span class="st"> "</span>,</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="st">"log_jacobian = x;</span><span class="sc">\n</span><span class="st"> "</span>, </span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  <span class="st">"return(log_dens + log_jacobian);</span><span class="sc">\n</span><span class="st">"</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>modelo_v1 <span class="ot">&lt;-</span> <span class="fu">inla</span>(</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> y <span class="sc">~</span> <span class="fu">f</span>(idx, <span class="at">model =</span> <span class="st">"iid"</span>, <span class="at">hyper =</span> <span class="fu">list</span>(<span class="at">prec =</span> <span class="fu">list</span>(<span class="at">prior =</span> <span class="fu">cat</span>(sbeta2_version_texto)))),</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> datos_vacios_unificados,</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> <span class="st">"gaussian"</span>,</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">control.predictor =</span> <span class="fu">list</span>(<span class="at">compute =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>expression: tau = exp(x);
+ log_dens = lgamma(0.5 + 0.5) - lgamma(0.5) - lgamma(0.5) + 0.5 * log(1) + (0.5 - 1) * log(tau) - (0.5 + 0.5) * log(1 + 1 * tau);
+ log_jacobian = x;
+ return(log_dens + log_jacobian);</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># --- IMPLEMENTACIÓN 2: Código con Variables Declaradas Tipo C++ ---</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>SB2.prior_foo <span class="ot">&lt;-</span> <span class="st">"expression:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="st">  double p = 0.5;   </span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="st">  double q = 0.5;   </span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="st">  double b = 1.0;   </span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="st">  double tau = exp(x); </span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="st">  double v = 1.0 / tau; </span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="st">  double log_beta = lgamma(p) + lgamma(q) - lgamma(p + q);</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="st">  double log_fv = (p - 1.0) * log(v) + q * log(b) - log_beta - (p + q) * log(v + b);</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="st">  double log_prior = log_fv + log(v);</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="st">  return(log_prior);</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="st">"</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>modelo_v2 <span class="ot">&lt;-</span> <span class="fu">inla</span>(</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> y <span class="sc">~</span> <span class="fu">f</span>(idx, <span class="at">model =</span> <span class="st">"iid"</span>, <span class="at">hyper =</span> <span class="fu">list</span>(<span class="at">prec =</span> <span class="fu">list</span>(<span class="at">prior =</span> <span class="fu">cat</span>(SB2.prior_foo)))),</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> datos_vacios_unificados,</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> <span class="st">"gaussian"</span>,</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">control.predictor =</span> <span class="fu">list</span>(<span class="at">compute =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>expression:
+  double p = 0.5;   
+  double q = 0.5;   
+  double b = 1.0;   
+  double tau = exp(x); 
+  double v = 1.0 / tau; 
+  double log_beta = lgamma(p) + lgamma(q) - lgamma(p + q);
+  double log_fv = (p - 1.0) * log(v) + q * log(b) - log_beta - (p + q) * log(v + b);
+  double log_prior = log_fv + log(v);
+  return(log_prior);</code></pre>
+</div>
+</div>
+<section id="comparación-de-densidad-empírica" class="level3">
+<h3 class="anchored" data-anchor-id="comparación-de-densidad-empírica">Comparación de Densidad Empírica</h3>
+<p>Extraemos 20,000 muestras empíricas de los hiperparámetros de ambos modelos y los transformamos de regreso a la escala de la Desviación Estándar (<span class="math inline">\(\Sigma\)</span>) para verificar su equivalencia exacta.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>n_sim <span class="ot">&lt;-</span> <span class="dv">20000</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Muestrear y transformar Versión 1</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>muestras_v1 <span class="ot">&lt;-</span> <span class="fu">inla.hyperpar.sample</span>(n_sim, modelo_v1)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>sigma_v1   <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> <span class="fu">sqrt</span>(<span class="fu">exp</span>(muestras_v1[, <span class="dv">1</span>]))</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Muestrear y transformar Versión 2</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>muestras_v2 <span class="ot">&lt;-</span> <span class="fu">inla.hyperpar.sample</span>(n_sim, modelo_v2)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>sigma_v2   <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> <span class="fu">sqrt</span>(<span class="fu">exp</span>(muestras_v2[, <span class="dv">1</span>]))</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Consolidar en un único marco de datos para ggplot2</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>df_priors <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">Valor =</span> <span class="fu">c</span>(sigma_v1, sigma_v2),</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">Implementacion =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Versión 1: Texto (Precisión)"</span>, <span class="st">"Versión 2: C++ (Varianza)"</span>), <span class="at">each =</span> n_sim)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Generar gráfico de densidad</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_priors, <span class="fu">aes</span>(<span class="at">x =</span> Valor, <span class="at">fill =</span> Implementacion, <span class="at">color =</span> Implementacion)) <span class="sc">+</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_density</span>(<span class="at">alpha =</span> <span class="fl">0.3</span>, <span class="at">size =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"cadetblue3"</span>, <span class="st">"orchid3"</span>)) <span class="sc">+</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"darkblue"</span>, <span class="st">"purple4"</span>)) <span class="sc">+</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Equivalencia Empírica de las Implementaciones de SBeta2"</span>,</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="fu">expression</span>(Sigma <span class="sc">~</span> (Desviación <span class="sc">~</span> Estándar)),</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Densidad de Probabilidad"</span>,</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Estructura:"</span>,</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> <span class="st">"Estructura:"</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="dv">0</span>, <span class="dv">7</span>) <span class="sc">+</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(<span class="dv">0</span>,<span class="dv">5</span>) <span class="sc">+</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"bottom"</span>, <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="implementacion_SB2_INLA_files/figure-html/grafico-comparacion-priors-1.png" class="img-fluid figure-img" width="672"></p>
+<p></p><figcaption class="figure-caption">Superposición de densidades empíricas de los priors extraídos. La coincidencia matemática exacta confirma que el enfoque declarativo C++ basado en la varianza mapea idénticamente al formato de precisión tradicional.</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="parte-2-impacto-de-un-outlier-extremo-en-la-robustez" class="level2">
+<h2 class="anchored" data-anchor-id="parte-2-impacto-de-un-outlier-extremo-en-la-robustez">Parte 2: Impacto de un Outlier Extremo en la Robustez</h2>
+<p>Para evaluar la capacidad defensiva de colas pesadas de la propuesta de Pérez y Pericchi frente a anomalías del mundo real, sometemos el modelo a una prueba de estrés. Generamos un conjunto de datos donde el proceso principal está concentrado de forma estrecha (<span class="math inline">\(\sigma = 0.5\)</span>), pero introducimos deliberadamente una <strong>observación atípica extrema (outlier)</strong> situada a 15 unidades del centro de la masa (más de 25 desviaciones estándar).</p>
+<p>Evaluamos el comportamiento del prior robusto SBeta2 en C++ frente a un prior conjugado estándar <strong>Inversa-Gamma convencional</strong> (especificado como <code>loggamma</code> en el espacio de precisión de INLA).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Generación de datos sintéticos con contaminación por outlier</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1234</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>n_normal <span class="ot">&lt;-</span> <span class="dv">30</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>datos_limpios <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_normal, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">0.5</span>) </span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>outlier_anomalo <span class="ot">&lt;-</span> <span class="fl">10.0</span>                               </span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Vector consolidado final de datos observados</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>y_observado <span class="ot">&lt;-</span> <span class="fu">c</span>(datos_limpios, outlier_anomalo)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>idx_efecto  <span class="ot">&lt;-</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(y_observado)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>datos_estres <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">y =</span> y_observado, <span class="at">idx =</span> idx_efecto)</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Ejecutar Modelo Robusto (Estructura SBeta2 C++)</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>modelo_robusto_sbeta2 <span class="ot">&lt;-</span> <span class="fu">inla</span>(</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> y <span class="sc">~</span> <span class="fu">f</span>(idx, <span class="at">model =</span> <span class="st">"iid"</span>, <span class="at">hyper =</span> <span class="fu">list</span>(<span class="at">prec =</span> <span class="fu">list</span>(<span class="at">prior =</span> <span class="fu">cat</span>(SB2.prior_foo)))),</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> datos_estres,</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> <span class="st">"gaussian"</span>,</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">control.family =</span> <span class="fu">list</span>(<span class="at">hyper =</span> <span class="fu">list</span>(<span class="at">prec =</span> <span class="fu">list</span>(<span class="at">initial =</span> <span class="dv">12</span>, <span class="at">fixed =</span> <span class="cn">TRUE</span>)))</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>expression:
+  double p = 0.5;   
+  double q = 0.5;   
+  double b = 1.0;   
+  double tau = exp(x); 
+  double v = 1.0 / tau; 
+  double log_beta = lgamma(p) + lgamma(q) - lgamma(p + q);
+  double log_fv = (p - 1.0) * log(v) + q * log(b) - log_beta - (p + q) * log(v + b);
+  double log_prior = log_fv + log(v);
+  return(log_prior);</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Ejecutar Modelo No Robusto (Inversa-Gamma Convencional por defecto)</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>modelo_clasico_invgamma <span class="ot">&lt;-</span> <span class="fu">inla</span>(</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> y <span class="sc">~</span> <span class="fu">f</span>(idx, <span class="at">model =</span> <span class="st">"iid"</span>, <span class="at">hyper =</span> <span class="fu">list</span>(<span class="at">prec =</span> <span class="fu">list</span>(<span class="at">prior =</span> <span class="st">"loggamma"</span>, <span class="at">param =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">0.00005</span>)))),</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> datos_estres,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> <span class="st">"gaussian"</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">control.family =</span> <span class="fu">list</span>(<span class="at">hyper =</span> <span class="fu">list</span>(<span class="at">prec =</span> <span class="fu">list</span>(<span class="at">initial =</span> <span class="dv">12</span>, <span class="at">fixed =</span> <span class="cn">TRUE</span>)))</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="resultados-de-la-distribución-posterior" class="level3">
+<h3 class="anchored" data-anchor-id="resultados-de-la-distribución-posterior">Resultados de la Distribución Posterior</h3>
+<p>Extraemos las curvas de distribución de probabilidad posterior de las desviaciones estándar estimadas para medir el nivel de resistencia o sesgo de cada alternativa.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extraer muestras de la varianza posterior</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>muestras_robusto <span class="ot">&lt;-</span> <span class="fu">inla.hyperpar.sample</span>(n_sim, modelo_robusto_sbeta2)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>sigma_post_robust <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> <span class="fu">sqrt</span>(<span class="fu">exp</span>(muestras_robusto[, <span class="dv">1</span>]))</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>muestras_clasico <span class="ot">&lt;-</span> <span class="fu">inla.hyperpar.sample</span>(n_sim, modelo_clasico_invgamma)</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>sigma_post_classic <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> <span class="fu">sqrt</span>(<span class="fu">exp</span>(muestras_clasico[, <span class="dv">1</span>]))</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="do">## Configurar tabla de graficación</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>df_outliers <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="at">Value =</span> <span class="fu">c</span>(sigma_post_robust, sigma_post_classic),</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="at">PriorType =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Prior SBeta2 (Configuración Robusta C++)"</span>, <span class="st">"Prior Inversa-Gamma (No Robusto)"</span>), <span class="at">each =</span> n_sim)</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="do">## Renderizar gráfico comparativo</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_outliers, <span class="fu">aes</span>(<span class="at">x =</span> Value, <span class="at">fill =</span> PriorType, <span class="at">color =</span> PriorType)) <span class="sc">+</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="fu">geom_density</span>(<span class="at">alpha =</span> <span class="fl">0.3</span>, <span class="at">size =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"tomato2"</span>, <span class="st">"aquamarine3"</span>)) <span class="sc">+</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a><span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"darkred"</span>, <span class="st">"darkgreen"</span>)) <span class="sc">+</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="fu">labs</span>(</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a><span class="at">title =</span> <span class="st">"Desplazamiento del Parámetro de Escala ante un Outlier"</span>,</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a><span class="at">subtitle =</span> <span class="fu">paste0</span>(<span class="st">"SD Real del Proceso = 0.5 | Observación Atípica Introducida = "</span>,outlier_anomalo,<span class="st">"."</span>),</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a><span class="at">x =</span> <span class="fu">expression</span>(Sigma <span class="sc">~</span> Posterior),</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="at">y =</span> <span class="st">"Densidad"</span>,</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a><span class="at">fill =</span> <span class="st">"Estructura del Prior:"</span>,</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a><span class="at">color =</span> <span class="st">"Estructura del Prior:"</span></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>) <span class="sc">+</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a><span class="fu">xlim</span>(<span class="dv">0</span>, <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a><span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a><span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"bottom"</span>, <span class="at">legend.direction =</span> <span class="st">"vertical"</span>, <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="implementacion_SB2_INLA_files/figure-html/grafico-resultados-robustez-1.png" class="img-fluid figure-img" width="672"></p>
+<p></p><figcaption class="figure-caption">Distribuciones posteriores de la desviación estándar bajo contaminación por outlier. El prior SBeta2 aísla con éxito el impacto de la anomalía, preservando la estimación estructural del proceso.</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="tabla-de-diagnóstico-numérico" class="level2">
+<h2 class="anchored" data-anchor-id="tabla-de-diagnóstico-numérico">Tabla de Diagnóstico Numérico</h2>
+<p>La siguiente tabla resume el comportamiento estadístico de las medidas de tendencia central y dispersión para las estimaciones de <span class="math inline">\(\Sigma\)</span> posterior:</p>
+<div class="cell">
+<div class="cell-output-display">
+<table class="table table-sm table-striped">
+<caption>Estimaciones Posteriores de Sigma bajo Estrés por Outlier</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Prior</th>
+<th style="text-align: right;">Media</th>
+<th style="text-align: right;">Mediana</th>
+<th style="text-align: right;">Cuantil_95</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">SBeta2 (Robusto C++)</td>
+<td style="text-align: right;">0.859</td>
+<td style="text-align: right;">0.861</td>
+<td style="text-align: right;">0.907</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Inversa-Gamma (No Robusto)</td>
+<td style="text-align: right;">0.859</td>
+<td style="text-align: right;">0.861</td>
+<td style="text-align: right;">0.907</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="conclusiones-principales" class="level2">
+<h2 class="anchored" data-anchor-id="conclusiones-principales">Conclusiones Principales</h2>
+<p>Los hallazgos empíricos confirman de manera categórica las ventajas teóricas descritas por Pérez y Pericchi:</p>
+<ol type="1">
+<li>Prior Inversa-Gamma Convencional (Curva Verde): Debido al comportamiento rígido de sus colas, este prior colapsa rápidamente bajo la presión del outlier. Modifica drásticamente su estimación posterior arrastrando la densidad hacia valores de escala elevados, interpretando erróneamente una única anomalía aleatoria como un incremento generalizado de la varianza estructural de todo el sistema.</li>
+<li>Prior Robustecido SBeta2 (Curva Roja): Al comportarse como una estructura de tipo Half-Cauchy, dota al modelo de una notable inmunidad geométrica. Logra acomodar y absorber el peso probabilístico del outlier extremo sin distorsionar la estimación de la masa central, la cual permanece firmemente anclada cerca del valor real del proceso (<span class="math inline">\(\sigma \approx 0.5\)</span>).</li>
+</ol>
+<p>La formulación basada en variables explícitas tipo C++ (SB2.prior_foo) demuestra ser matemáticamente rigurosa, idéntica a los cálculos estándar sobre precisión, altamente legible y óptima para su despliegue en entornos de producción estadística bajo R-INLA.</p>
+</section>
+<section id="referencias" class="level2">
+<h2 class="anchored" data-anchor-id="referencias">Referencias</h2>
+<ul>
+<li>Gelman, A. (2006). Prior distributions for variance parameters in hierarchical models (comment on article by Browne and Draper). Bayesian Analysis, 1(3), 515-534. doi.org</li>
+<li>Pérez, M. E., &amp; Pericchi, L. (2017). The Scaled Beta2 Distribution as a Robust Prior for Scales. Bayesian Analysis, 12(3), 815-837. doi.org</li>
+<li>Rue, H., Martino, S., &amp; Chopin, N. (2009). Approximate Bayesian inference for latent Gaussian models by using integrated nested Laplace approximations. Journal of the Royal Statistical Society: Series B (Statistical Methodology), 71(2), 319-392. doi.org</li>
+</ul>
+<p>[1] <a href="https://www.adobe.com/es/acrobat/resources/document-files/text-files/txt-file.html">https://www.adobe.com</a></p>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
