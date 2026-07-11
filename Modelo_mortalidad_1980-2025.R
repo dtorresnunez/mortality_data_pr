@@ -1268,8 +1268,38 @@ for (m in names(tablas)) {
 
 
 
+
+
 ###
-param_pqb <- param_pqb_age <- param_pqb_period <- param_pqb_region  <- param_pqb_region_period <-  list(c(1, 1, 1), c(0.5, 0.5, 1), c(1, 0.5, 1), c(0.5, 1, 1)) #list(c(1, 1, 1))#
+# Parametros de prueba. No tienen sustento en la literatura
+param_gamma_age           <- list(2)
+param_gamma_region        <- list(1)
+param_gamma_period        <- list(0.5)
+param_gamma_region_period <- list(0.25)
+
+param_pqb_age             <- list(c(1, 1, 1))
+param_pqb_region          <- list(c(1, 1, 0.5))
+param_pqb_period          <- list(c(1, 1, 0.25))
+param_pqb_region_period   <- list(c(1, 1, 0.1))
+
+param_ua_age              <- list(c(2, 0.01))
+param_ua_region           <- list(c(1, 0.01))
+param_ua_period           <- list(c(0.5, 0.01))
+param_ua_region_period    <- list(c(0.25, 0.01))
+
+make_hc_prior <- function(gamma) {
+  sprintf(
+    "expression:
+      sigma = exp(-theta/2);
+      gamma = %f;
+      log_dens = log(2) - log(pi) - log(gamma);
+      log_dens = log_dens - log(1 + (sigma/gamma)^2);
+      log_dens = log_dens - log(2) - theta/2;
+      return(log_dens);
+    ",
+    gamma
+  )
+}
 
 make_sb2_prior <- function(p, q, b) {
   sprintf(
@@ -1290,42 +1320,27 @@ make_sb2_prior <- function(p, q, b) {
 
 construct_prior <- function(familia, param, k) {
   switch(familia,
-         "scale.beta2"   = list(prior = make_sb2_prior(p = param[[k]][1],
-                                                       q = param[[k]][2],
-                                                       b = param[[k]][3]))
+         "half.cauchy" = list(prior = make_hc_prior(gamma = param[[k]][1])),
+         "scale.beta2" = list(prior = make_sb2_prior(p = param[[k]][1],
+                                                     q = param[[k]][2],
+                                                     b = param[[k]][3])),
+         "pc.prior"    = list(prior = "pc.prec", param = c(param[[k]][1], param[[k]][2]))
   )
 }
 
-# construct_prior("scale.beta2", param_pqb, 4)
-
-# formula_dinamic <- deaths ~
-#   factor(sex) +
-#   f(age_idx, model = "rw1", constr = TRUE,
-#     hyper = list(prec = construct_prior(previa_age, param_pqb_age, 1))) +
-#   f(region_idx, model = "bym2", graph = adya, constr = TRUE,
-#     hyper = list(prec = construct_prior(previa_region, param_pqb_region, 2))) +
-#   f(period_idx, model = "rw2", constr = TRUE,
-#     hyper = list(prec = construct_prior(previa_period, param_pqb_period, 3))) +
-#   f(region_period_idx, model = "iid",
-#     hyper = list(prec = construct_prior(previa_region_period, param_pqb_region_period, 4)))
-# 
-# fit_dynamic <- inla(
-#   formula           = formula_dinamic, 
-#   family            = "poisson", 
-#   data              = df, 
-#   E                 = population, 
-#   control.predictor = list(compute = TRUE),
-#   control.compute   = list(config = TRUE, dic = TRUE, waic = TRUE)
-# )
-
+# Ejemplos de uso
+construct_prior("scale.beta2", param_pqb_age, 1)
+construct_prior("half.cauchy", param_gamma_region, 1)
+construct_prior("pc.prior", param_ua_period, 1)
+construct_prior("pc.prior", list(c(1, 0.1)), 1)
 
 ajuste_modelo_inla <- function(defun, 
                                adya,
                                k, l, m, n,
-                               previa_age            = "scale.beta2",
-                               previa_region         = "scale.beta2",
-                               previa_period         = "scale.beta2",
-                               previa_region_period  = "scale.beta2",
+                               previa_age,
+                               previa_region,
+                               previa_period,
+                               previa_region_period,
                                param_age,
                                param_region,
                                param_period,
@@ -1335,7 +1350,8 @@ ajuste_modelo_inla <- function(defun,
     f(age_idx, model = "rw1", constr = TRUE,
       hyper = list(prec = construct_prior(previa_age, param_age, k))) +
     f(region_idx, model = "bym2", graph = adya, constr = TRUE,
-      hyper = list(prec = construct_prior(previa_region, param_region, l))) +
+      hyper = list(prec = construct_prior(previa_region, param_region, l),
+                   phi  = list(prior = "logitbeta", param = c(0.5, 0.5)))) + # EGR: ¿Puedo agregar esa previa para phi?
     f(period_idx, model = "rw2", constr = TRUE,
       hyper = list(prec = construct_prior(previa_period, param_period, m))) +
     f(region_period_idx, model = "iid",
@@ -1351,24 +1367,225 @@ ajuste_modelo_inla <- function(defun,
   )
 }
 
-
-set.seed(123)
+# Ejemplo de uso
 fit_dynamic <- ajuste_modelo_inla(defun = df, 
                    adya = g,
-                   k = 1,
-                   l = 1,
-                   m = 1,
-                   n = 1,
-                   previa_age = "scale.beta2", 
-                   previa_period = "scale.beta2", 
-                   previa_region = "scale.beta2",
+                   k = 1, l = 1, m = 1, n = 1,
+                   previa_age = "half.cauchy",
+                   previa_region = "scale.beta2",                   
+                   previa_period = "pc.prior", 
                    previa_region_period = "scale.beta2",
-                   param_age             = param_pqb_age,
+                   param_age             = param_gamma_age,
                    param_region          = param_pqb_region,
-                   param_period          = param_pqb_period,
+                   param_period          = param_ua_period,                   
                    param_region_period   = param_pqb_region_period
                    )
-bri.hyperpar.plot(fit_dynamic, together = T)
+# devtools::install_github("julianfaraway/brinla")
+# library(brinla)
+# bri.hyperpar.plot(fit_dynamic, together = T)
+
+# -----------------------------
+# 11. Análisis de sensitividad 
+# -----------------------------
+
+# Corre muy lento. Para 81 modelos tardo cerca de 15 minutos. Esto se puede optimizar usando 
+# AI. Terminando este chunk hay dos optimizaciones que tardan mucho menos
+fam <- c(half.cauchy="param_gamma_", scale.beta2="param_pqb_", pc.prior="param_ua_")
+efectos <- c(age = "age", region = "region", period = "period", region_period = "region_period")
+
+combinaciones <- expand.grid(
+  age           = names(fam),
+  region        = names(fam),
+  period        = names(fam),
+  region_period = names(fam)
+)
+
+nombres_previas <- apply(combinaciones, 1, function(x) {
+  paste(sapply(names(efectos), function(efecto) {
+      previa <- x[efecto]
+      param  <- get(paste0(fam[previa], efecto))
+      paste0(previa, " ", efectos[efecto], " (", paste(unlist(param), collapse = ", "), ")")
+    }),collapse = " | ")
+})
+
+csize.models <- do.call(c, lapply(seq_len(nrow(combinaciones)), function(i) {
+  a <- as.character(combinaciones$age[i])
+  r <- as.character(combinaciones$region[i])
+  p <- as.character(combinaciones$period[i])
+  s <- as.character(combinaciones$region_period[i])
+  param_age <- get(paste0(fam[a], "age"))
+  param_region <- get(paste0(fam[r], "region"))
+  param_period <- get(paste0(fam[p], "period"))
+  param_region_period <- get(paste0(fam[s], "region_period"))
+  indices <- expand.grid(k = seq_along(param_age),
+                         l = seq_along(param_region),
+                         m = seq_along(param_period),
+                         n = seq_along(param_region_period))
+  modelos <- lapply(seq_len(nrow(indices)), function(j) {
+    ajuste_modelo_inla(defun = df,
+                       adya = g,
+                       k = indices$k[j], l = indices$l[j], m = indices$m[j], n = indices$n[j],
+                       previa_age = a,
+                       previa_region = r,
+                       previa_period = p,
+                       previa_region_period = s,
+                       param_age = param_age, 
+                       param_region = param_region,
+                       param_period = param_period,
+                       param_region_period = param_region_period)
+  })
+  names(modelos) <- apply(indices, 1, function(x) {
+    paste(paste0(a, " age (", paste(param_age[[x["k"]]], collapse = ", "), ")"),
+          paste0(r, " region (", paste(param_region[[x["l"]]], collapse = ", "), ")"),
+          paste0(p, " period (", paste(param_period[[x["m"]]], collapse = ", "), ")"),
+          paste0(s, " region_period (", paste(param_region_period[[x["n"]]], collapse = ", "), ")"),
+          sep = " | ")
+  })
+  modelos
+}))
+
+sensitivity_analysis_summary<- tibble(
+  prior = names(csize.models),
+  DIC   = sapply(csize.models, function(m) m$dic$dic),
+  WAIC  = sapply(csize.models, function(m) m$waic$waic),
+  sigma_age_idx = sapply(csize.models, function(m) {
+    1 / sqrt(m$summary.hyperpar["Precision for age_idx", "mean"])
+  }),
+  sigma_region_idx = sapply(csize.models, function(m) {
+    1 / sqrt(m$summary.hyperpar["Precision for region_idx", "mean"])
+  }),
+  sigma_period_idx = sapply(csize.models, function(m) {
+    1 / sqrt(m$summary.hyperpar["Precision for period_idx", "mean"])
+  }),
+  sigma_region_period_idx = sapply(csize.models, function(m) {
+    1 / sqrt(m$summary.hyperpar["Precision for region_period_idx", "mean"])
+  })
+)
+
+print(sensitivity_analysis_summary)
+
+###########################################
+# Optimizacion 1 con AI. Tarda 5.5 minutos
+###########################################
+fam <- c(half.cauchy="param_gamma_", scale.beta2="param_pqb_", pc.prior="param_ua_")
+op <- function(ef) unlist(lapply(names(fam), \(f) paste(f, seq_along(get(paste0(fam[f], ef))))))
+G <- expand.grid(age=op("age"), region=op("region"), period=op("period"),
+                 region_period=op("region_period"), stringsAsFactors=FALSE)
+
+FA <- function(t) sub(" .*","",t)
+KK <- function(t) as.integer(sub(".* ","",t))
+PA <- function(ef,t) get(paste0(fam[FA(t)], ef))
+tx <- function(ef,t) paste0(FA(t)," ",ef," (",paste(PA(ef,t)[[KK(t)]],collapse=", "),")")
+
+csize.models <- lapply(seq_len(nrow(G)), \(i) {
+  a<-G$age[i]; r<-G$region[i]; p<-G$period[i]; s<-G$region_period[i]
+  ajuste_modelo_inla(defun=df, adya=g, k=KK(a), l=KK(r), m=KK(p), n=KK(s),
+                     previa_age=FA(a), previa_region=FA(r), previa_period=FA(p), previa_region_period=FA(s),
+                     param_age=PA("age",a), param_region=PA("region",r),
+                     param_period=PA("period",p), param_region_period=PA("region_period",s))
+})
+
+names(csize.models) <- sapply(seq_len(nrow(G)), \(i)
+                              paste(tx("age",G$age[i]), tx("region",G$region[i]),
+                                    tx("period",G$period[i]), tx("region_period",G$region_period[i]), sep=" | "))
+
+sig <- function(m,p) 1/sqrt(m$summary.hyperpar[p,"mean"])
+sensitivity_analysis_summary <- tibble(
+  prior=names(csize.models),
+  DIC =sapply(csize.models,\(m) m$dic$dic),
+  WAIC=sapply(csize.models,\(m) m$waic$waic),
+  s_age=sapply(csize.models,sig,"Precision for age_idx"),
+  s_reg=sapply(csize.models,sig,"Precision for region_idx"),
+  s_per=sapply(csize.models,sig,"Precision for period_idx"),
+  s_int=sapply(csize.models,sig,"Precision for region_period_idx"))
+print(sensitivity_analysis_summary)
+
+
+###########################################
+# Optimizacion 2 con AI. Tarda 4.5 minutos
+###########################################
+fam <- c(half.cauchy="param_gamma_", scale.beta2="param_pqb_", pc.prior="param_ua_")
+op <- function(ef) unlist(lapply(names(fam), \(f) paste(f, seq_along(get(paste0(fam[f], ef))))))
+G <- expand.grid(age=op("age"), region=op("region"), period=op("period"),
+                 region_period=op("region_period"), stringsAsFactors=FALSE)
+pr <- function(ef, t) {
+  f <- sub(" .*","",t); p <- get(paste0(fam[f], ef))[[as.integer(sub(".* ","",t))]]
+  if (f=="half.cauchy") list(prior=make_hc_prior(p[1]))
+  else if (f=="scale.beta2") list(prior=make_sb2_prior(p[1],p[2],p[3]))
+  else list(prior="pc.prec", param=p)
+}
+tx <- function(ef, t) { f<-sub(" .*","",t)
+paste0(f," ",ef," (",paste(get(paste0(fam[f],ef))[[as.integer(sub(".* ","",t))]],collapse=", "),")") }
+
+csize.models <- lapply(seq_len(nrow(G)), \(i) inla(
+  deaths ~ factor(sex) +
+    f(age_idx, model="rw1", constr=TRUE, hyper=list(prec=pr("age", G$age[i]))) +
+    f(region_idx, model="bym2", graph=g, constr=TRUE,
+      hyper=list(prec=pr("region", G$region[i]), phi=list(prior="logitbeta", param=c(.5,.5)))) +
+    f(period_idx, model="rw2", constr=TRUE, hyper=list(prec=pr("period", G$period[i]))) +
+    f(region_period_idx, model="iid", hyper=list(prec=pr("region_period", G$region_period[i]))),
+  family="poisson", data=df, E=population,
+  control.compute=list(dic=TRUE, waic=TRUE)))
+
+names(csize.models) <- sapply(seq_len(nrow(G)), \(i)
+                              paste(tx("age",G$age[i]), tx("region",G$region[i]),
+                                    tx("period",G$period[i]), tx("region_period",G$region_period[i]), sep=" | "))
+
+sig <- function(m,p) 1/sqrt(m$summary.hyperpar[p,"mean"])
+sensitivity_analysis_summary <- tibble(
+  prior=names(csize.models),
+  DIC =sapply(csize.models,\(m) m$dic$dic),
+  WAIC=sapply(csize.models,\(m) m$waic$waic),
+  s_age=sapply(csize.models,sig,"Precision for age_idx"),
+  s_reg=sapply(csize.models,sig,"Precision for region_idx"),
+  s_per=sapply(csize.models,sig,"Precision for period_idx"),
+  s_int=sapply(csize.models,sig,"Precision for region_period_idx"))
+print(sensitivity_analysis_summary)
+
+###
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #OTRA FORMA: 
