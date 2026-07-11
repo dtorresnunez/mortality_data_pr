@@ -1222,6 +1222,235 @@ for (m in names(tablas)) {
 ##########################################################################
 ##########################################################################
 ##########################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###
+param_pqb <- param_pqb_age <- param_pqb_period <- param_pqb_region  <- param_pqb_region_period <-  list(c(1, 1, 1), c(0.5, 0.5, 1), c(1, 0.5, 1), c(0.5, 1, 1)) #list(c(1, 1, 1))#
+
+make_sb2_prior <- function(p, q, b) {
+  sprintf(
+    "expression:
+      p = %f;
+      q = %f;
+      b = %f;
+      sigma2 = exp(-theta);
+      log_dens = lgamma(p+q) - lgamma(p) - lgamma(q) - log(b);
+      log_dens = log_dens + (p-1) * log(sigma2/b);
+      log_dens = log_dens - (p+q) * log(1 + sigma2/b);
+      log_dens = log_dens - theta;
+      return(log_dens);
+    ",
+    p, q, b
+  )
+}
+
+construct_prior <- function(familia, param, k) {
+  switch(familia,
+         "scale.beta2"   = list(prior = make_sb2_prior(p = param[[k]][1],
+                                                       q = param[[k]][2],
+                                                       b = param[[k]][3]))
+  )
+}
+
+# construct_prior("scale.beta2", param_pqb, 4)
+
+# formula_dinamic <- deaths ~
+#   factor(sex) +
+#   f(age_idx, model = "rw1", constr = TRUE,
+#     hyper = list(prec = construct_prior(previa_age, param_pqb_age, 1))) +
+#   f(region_idx, model = "bym2", graph = adya, constr = TRUE,
+#     hyper = list(prec = construct_prior(previa_region, param_pqb_region, 2))) +
+#   f(period_idx, model = "rw2", constr = TRUE,
+#     hyper = list(prec = construct_prior(previa_period, param_pqb_period, 3))) +
+#   f(region_period_idx, model = "iid",
+#     hyper = list(prec = construct_prior(previa_region_period, param_pqb_region_period, 4)))
+# 
+# fit_dynamic <- inla(
+#   formula           = formula_dinamic, 
+#   family            = "poisson", 
+#   data              = df, 
+#   E                 = population, 
+#   control.predictor = list(compute = TRUE),
+#   control.compute   = list(config = TRUE, dic = TRUE, waic = TRUE)
+# )
+
+
+ajuste_modelo_inla <- function(defun, 
+                               adya,
+                               k, l, m, n,
+                               previa_age            = "scale.beta2",
+                               previa_region         = "scale.beta2",
+                               previa_period         = "scale.beta2",
+                               previa_region_period  = "scale.beta2",
+                               param_age,
+                               param_region,
+                               param_period,
+                               param_region_period){
+  formula_dinamic <- deaths ~
+    factor(sex) +
+    f(age_idx, model = "rw1", constr = TRUE,
+      hyper = list(prec = construct_prior(previa_age, param_age, k))) +
+    f(region_idx, model = "bym2", graph = adya, constr = TRUE,
+      hyper = list(prec = construct_prior(previa_region, param_region, l))) +
+    f(period_idx, model = "rw2", constr = TRUE,
+      hyper = list(prec = construct_prior(previa_period, param_period, m))) +
+    f(region_period_idx, model = "iid",
+      hyper = list(prec = construct_prior(previa_region_period, param_region_period, n)))
+  
+  fit_dynamic <- inla(
+    formula           = formula_dinamic, 
+    family            = "poisson", 
+    data              = defun, 
+    E                 = population, 
+    control.predictor = list(compute = TRUE),
+    control.compute   = list(config = TRUE, dic = TRUE, waic = TRUE)
+  )
+}
+
+
+set.seed(123)
+fit_dynamic <- ajuste_modelo_inla(defun = df, 
+                   adya = g,
+                   k = 1,
+                   l = 1,
+                   m = 1,
+                   n = 1,
+                   previa_age = "scale.beta2", 
+                   previa_period = "scale.beta2", 
+                   previa_region = "scale.beta2",
+                   previa_region_period = "scale.beta2",
+                   param_age             = param_pqb_age,
+                   param_region          = param_pqb_region,
+                   param_period          = param_pqb_period,
+                   param_region_period   = param_pqb_region_period
+                   )
+bri.hyperpar.plot(fit_dynamic, together = T)
+
+
+#OTRA FORMA: 
+combinaciones_sb2 <- list(
+  c(1, 1, 1),
+  c(0.5, 0.5, 1),
+  c(2, 2, 1),
+  c(1, 1, 5)
+)
+
+modelos_sb2 <- lapply(combinaciones_sb2, function(param) {
+  ajuste_modelo_inla(df, g,
+                     familia_age = "scale.beta2", param_age = param)
+})
+names(modelos_sb2) <- sapply(combinaciones_sb2, paste, collapse = "_")
+
+####
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # -------------
 # 11.3 Tuning
 # -------------
@@ -1500,38 +1729,6 @@ ajuste_modelo_inla <- function(df,
   )
 }
 
-
-#Scale Beta2 (Tuning luego pasar a ajustas_modelo_inla)
-# p=1, q=1, b=1 (default, cercano a Half-Cauchy)
-construct_prior("scale.beta2", c(1, 1, 1))
-
-# p=0.5, q=0.5, b=1 (colas más pesadas, forma tipo Half-Cauchy más extrema)
-construct_prior("scale.beta2", c(0.5, 0.5, 1))
-
-# p=2, q=2, b=1 (más concentrado, colas más ligeras)
-construct_prior("scale.beta2", c(2, 2, 1))
-
-# p=1, q=3, b=1 (asimétrico: cola derecha más pesada que la izquierda)
-construct_prior("scale.beta2", c(1, 3, 1))
-
-# p=1, q=1, b=5 (misma forma que el default, pero escala mayor)
-construct_prior("scale.beta2", c(1, 1, 5))
-
-
-
-#OTRA FORMA: 
-combinaciones_sb2 <- list(
-  c(1, 1, 1),
-  c(0.5, 0.5, 1),
-  c(2, 2, 1),
-  c(1, 1, 5)
-)
-
-modelos_sb2 <- lapply(combinaciones_sb2, function(param) {
-  ajuste_modelo_inla(df, g,
-                      familia_age = "scale.beta2", param_age = param)
-})
-names(modelos_sb2) <- sapply(combinaciones_sb2, paste, collapse = "_")
 
 
 
