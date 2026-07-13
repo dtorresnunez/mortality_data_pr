@@ -538,9 +538,9 @@ sigma <- 1 / sqrt(fit$summary.hyperpar$mean)
 inla.list.models("prior")
 
 #Abre la documentación de una prior específica
-inla.doc("loggamma") #log-Gamma/loggamma/parameters = shape and rate
-inla.doc("gaussian")
-inla.doc("pc")
+#inla.doc("loggamma") #log-Gamma/loggamma/parameters = shape and rate
+#inla.doc("gaussian")
+#inla.doc("pc")
 
 #Lista todos los nombres de priors disponibles en INLA
 names(inla.models()$prior)
@@ -614,18 +614,18 @@ HC.prior  = "expression:
 cat(HC.prior)
 
 #Implementada
-# formula_hc <- deaths ~
-#   factor(sex) +
-#   f(age_idx,    model = "rw1",  constr = TRUE,
-#     hyper = list(prec = list(prior = HC.prior))) +
-#   f(region_idx, model = "bym2", graph = g, constr = TRUE,
-#     hyper = list(
-#       prec = list(prior = HC.prior),
-#       phi  = list(prior = "logitbeta", param = c(0.5, 0.5))))+  # Beta(0.5, 0.5) en escala logarítmica
-#   f(period_idx, model = "rw2",  constr = TRUE,
-#     hyper = list(prec = list(prior = HC.prior))) +
-#   f(region_period_idx, model = "iid",
-#     hyper = list(prec = list(prior = HC.prior)))
+formula_hc <- deaths ~
+  factor(sex) +
+  f(age_idx,    model = "rw1",  constr = TRUE,
+    hyper = list(prec = list(prior = HC.prior))) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE,
+    hyper = list(
+      prec = list(prior = HC.prior),
+      phi  = list(prior = "logitbeta", param = c(0.5, 0.5))))+  # Beta(0.5, 0.5) en escala logarítmica
+  f(period_idx, model = "rw2",  constr = TRUE,
+    hyper = list(prec = list(prior = HC.prior))) +
+  f(region_period_idx, model = "iid",
+    hyper = list(prec = list(prior = HC.prior)))
 
 fit_hc <- inla(formula_hc,
                family  = "poisson",
@@ -797,7 +797,8 @@ formula_ht <- deaths ~
   f(region_period_idx, model = "iid",
     hyper = HT.prior)
 
-#Explícita #Implementada 
+#Explícita 
+#Implementada 
 formula_ht <- deaths ~
   factor(sex) +
   f(age_idx,    model = "rw1",  constr = TRUE,
@@ -810,18 +811,6 @@ formula_ht <- deaths ~
   f(region_period_idx, model = "iid",
     hyper = list(prec = list(prior = HT.prior)))
 
-#Cambio de parámetros
-formula_ht <- deaths ~
-  factor(sex) +
-  f(age_idx,    model = "rw1",  constr = TRUE,
-    hyper = list(prec = list(prior = HT.prior))) +
-  f(region_idx, model = "bym2", graph = g, constr = TRUE,
-    hyper = list(
-      prec = list(prior = HT.prior)))+  
-  f(period_idx, model = "rw2",  constr = TRUE,
-    hyper = list(prec = list(prior = HT.prior))) +
-  f(region_period_idx, model = "iid",
-    hyper = list(prec = list(prior = HT.prior)))
 
 fit_ht <- inla(formula_ht,
                family  = "poisson",
@@ -1145,9 +1134,10 @@ fit_dynamic <- ajuste_modelo_inla(defun = df,
 # 11. Análisis de sensitividad 
 # -----------------------------
 
+#Enterada NNGN, muchas gracias. 
 # Corre muy lento. Para 81 modelos tardo cerca de 15 minutos. Esto se puede optimizar usando 
 # AI. Terminando este chunk hay dos optimizaciones que tardan mucho menos
-# EGR. El comentari de arriba fue en la noche. Ahora en la manania tengo esta noticia.
+# EGR. El comentario de arriba fue en la noche. Ahora en la manania tengo esta noticia.
 # Al borrar el environment y ejecutar de nuevo el csize.models(), tardo 4.6 minutos.
 # En conlusion, el codigo funciona bien y su tiempo de ejecucion es comparable con el dado por AI.
 # Se tendria que probar con mas juegos de parametros para ver si el do.call() lo sigue 
@@ -1803,8 +1793,40 @@ hist(inla.hyperpar.sample(10000,fit_sb2))
 hist(inla.hyperpar.sample(10000,fit_ig))
 
 # -----------------------
-# 14. Gráficos - Previas
+# 14. Gráficos
 # -----------------------
+
+inla.hpdmarginal()
+plot(fit_hc)
+
+plot(fit_sb2)
+
+plot(fit_ht)
+
+plot(fit_ig)
+
+plot(fit_pc)
+
+#Ejemplo para observar los intervalos de credibilidad
+df_period <- $summary.random$period_idx
+
+ggplot(df_period, aes(x = ID, y = `0.5quant`)) +
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), 
+              fill = "steelblue", alpha = 0.3) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  labs(x = "Período", y = "Efecto (escala log)", 
+       title = "Efecto temporal RW2 con intervalo de credibilidad 95%") +
+  theme_minimal()
+
+
+
+
+
+
+
+
+
+
 n_samp <- 10000 #Comenzando en 10,000 muestras
 
 samples <- bind_rows(
@@ -1901,5 +1923,5 @@ plots_list <- lapply(hiperpar_names, function(hp) {
 
 plots_list
 
-#Construcción de los intervalos de confianza
+#Intervalos de confianza
 
