@@ -1923,9 +1923,4 @@ plots_list <- lapply(hiperpar_names, function(hp) {
 
 plots_list
 
-<<<<<<< HEAD
 #Intervalos de confianza
-=======
-#Intervalos de confianza
-
->>>>>>> 950d78d2f0d837ba307d786fb47976a9e0d57eb0

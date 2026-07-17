@@ -1,12 +1,8 @@
 ################################################
 ### Modelo para mortalidad en áreas pequeñas ###
 ################################################
-#7 - 2026_30_06
-
-<<<<<<< HEAD
-=======
 #Trabajo de Prueba 7-5-2026 
->>>>>>> 2c1b352945667de11e89ad1df595c662970f6a79
+
 
 #Paquetes
 library(INLA)
@@ -1419,7 +1415,3 @@ plots_list <- lapply(hiperpar_names, function(hp) {
 })
 
 plots_list
-
-
-
-
