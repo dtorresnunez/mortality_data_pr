@@ -21,7 +21,8 @@ library(MortCast)
 library(MortalityLaws) 
 library(epitools)
 library(PHEindicatormethods)
-library(demography) 
+library(demography)
+library(readxl)# EGR
 
 set.seed(123)
 
@@ -134,12 +135,16 @@ poblacion <- read_csv(
   left_join(muni_xwalk, by = "fips3")
 
 #Nota: solo aparece la poblacion de hombre y mujeres, no la población (0).
-defunciones <- read_dta(
+# begin EGR
+ANIOS_CORREGIDOS <- 2015:2020
+
+defunciones_orig <- read_dta(
   file.path(data_dir, "defunciones_municipios_long_1979_2023.dta")
 ) %>% rename(sex = sexo) %>%
   filter(
     year >= min(periods),
     year <= max(periods),
+    !(year %in% ANIOS_CORREGIDOS), # EGR: excluimos los anios a corregir
     !is.na(fips3),
     fips3 != "",
     !is.na(edad),
@@ -156,7 +161,114 @@ defunciones <- read_dta(
       )
     )
   ) %>%
+  mutate(sex = as.integer(sex)) %>% # EGR: por si sexo con la nueva base no se lee como numerico
   count(fips3, period, agegroup, sex, name = "deaths")
+
+# EGR: ahora hay que poner las defunciones de la base nueva en el formato que ya se tiene
+defunciones_corr <- read_excel(
+  file.path(data_dir, "2026-07-16_corregidas_defunciones_wide_2015-2023.xlsx"),
+  sheet = "Sheet1"
+) %>%
+  filter(year %in% ANIOS_CORREGIDOS) %>%
+  select(-edad_NA) %>%                        # muertes sin edad: se descartan
+  rename(sex = sexo) %>%
+  pivot_longer(
+    cols = starts_with("edad_"),
+    names_to = "edad",
+    names_prefix = "edad_",
+    values_to = "deaths"
+  ) %>%
+  mutate(
+    edad  = as.numeric(edad),
+    sex   = as.integer(sex),
+    fips3 = str_pad(as.character(fips3), 3, "left", "0")   # el xlsx trae 1, 3, 5...
+  ) %>%
+  filter(
+    !is.na(fips3),
+    fips3 != "",
+    !is.na(sex),
+    deaths > 0
+  ) %>%
+  mutate(
+    period = period_quinquenal(year),
+    agegroup = as.character(
+      cut(
+        edad,
+        breaks = c(0, 1, seq(5, 85, by = 5), Inf),
+        labels = ages,
+        right = FALSE
+      )
+    )
+  ) %>%
+  group_by(fips3, period, agegroup, sex) %>%
+  summarise(deaths = sum(deaths), .groups = "drop")
+
+# EGR: juntamos las defunciones de la base vieja con la nueva solo
+# EGR: solo en los anios 2015 - 2020. De 2021 a 2023 nos quedamos con la
+# EGR: base inicial de defunciones
+
+defunciones <- bind_rows(defunciones_orig, defunciones_corr) %>%
+  group_by(fips3, period, agegroup, sex) %>%
+  summarise(deaths = sum(deaths), .groups = "drop")
+
+# EGR: comprobemos las muertes de edad 0 por periodo
+crudo_orig <- read_dta(
+  file.path(data_dir, "defunciones_municipios_long_1979_2023.dta")
+) %>%
+  filter(
+    year >= 2010, year <= 2023,
+    !(year %in% ANIOS_CORREGIDOS),
+    !is.na(edad)
+  ) %>%
+  mutate(year = as.integer(year), edad = as.numeric(edad)) %>%
+  count(year, edad, name = "deaths")
+
+crudo_corr <- read_excel(
+  file.path(data_dir, "2026-07-16_corregidas_defunciones_wide_2015-2023.xlsx"),
+  sheet = "Sheet1"
+) %>%
+  filter(year %in% ANIOS_CORREGIDOS) %>%
+  select(-edad_NA) %>%
+  pivot_longer(
+    cols = starts_with("edad_"),
+    names_to = "edad", names_prefix = "edad_", values_to = "deaths"
+  ) %>%
+  mutate(edad = as.numeric(edad)) %>%
+  filter(deaths > 0) %>%
+  count(year, edad, wt = deaths, name = "deaths")
+
+tabla_cruda <- bind_rows(crudo_orig, crudo_corr) %>%
+  filter(edad <= 12) %>%
+  group_by(year, edad) %>%
+  summarise(deaths = sum(deaths), .groups = "drop") %>%
+  pivot_wider(names_from = edad, values_from = deaths, values_fill = 0) %>%
+  arrange(year)
+
+print(tabla_cruda, n = Inf)
+# defunciones <- read_dta(
+#   file.path(data_dir, "defunciones_municipios_long_1979_2023.dta")
+# ) %>% rename(sex = sexo) %>%
+#   filter(
+#     year >= min(periods),
+#     year <= max(periods),
+#     !is.na(fips3),
+#     fips3 != "",
+#     !is.na(edad),
+#   ) %>%
+#   mutate(
+#     period = period_quinquenal(year),
+#     #period = as.integer(year), #años sencillos
+#     agegroup = as.character(
+#       cut(
+#         edad,
+#         breaks = c(0, 1, seq(5, 85, by = 5), Inf), #HOLD c(seq(0, 85, by = 5), Inf),
+#         labels = ages,
+#         right = FALSE
+#       )
+#     )
+#   ) %>%
+#   count(fips3, period, agegroup, sex, name = "deaths")
+# end EGR
 
 df <- poblacion %>%
   left_join(defunciones, by = c("fips3", "period", "agegroup","sex")) %>%
