@@ -1,26 +1,7 @@
 ################################################
 ### Modelo para mortalidad en áreas pequeñas ###
 ################################################
-#2026_07_07
-
-#Tareas:
-#Kannisto Mortality law
-#Tasas directas e indirectas (cuando no tienes las tasas = municipio)
-#e0 = no depende de la estructura de edad
-#analsiis exploratorio = estandarizaicon indrecta comparada con e0
-#si hay fuerte correlacion = no se puede calcular el e0, se usa la tindirecta como ranking para el sesgo
-#estandarizacion indircta = quien tiene o no la mortalidad de pr, 0,menor a 1 o mayor a 1.
-#cambios en el tiempo, el estandar tiene que ser 1, el mxrt cambia con el tiempo
-
-#Analisis Exploratorio: 
-#estandarizacion indirecta
-#mejor indicador = ex, e0
-#con los datos crudo no se puede calcular el e0. 
-#estimacion bayesiana para calcular la e0,ex
-#1:00pm - Dr. Mattei
-
-#IA audio app = TurboScribe  - hasta 3 transcripts gratis.
-
+#2026_07_11
 
 #Paquetes
 library(INLA)
@@ -37,10 +18,10 @@ library(demogR)
 library(patchwork) 
 library(MortalityEstimate)
 library(MortCast) 
-library(MortalityLaws) #sporte en MortCast
+library(MortalityLaws) 
 library(epitools)
 library(PHEindicatormethods)
-library(demography) #HOLD
+library(demography) 
 
 set.seed(123)
 
@@ -474,18 +455,18 @@ life_tables <- pred %>%
   group_modify(~ {
     df_lt <- .x
     k <- nrow(df_lt)
-
+    
     lx <- numeric(k + 1)
     dx <- numeric(k)
     Lx <- numeric(k)
     Tx <- numeric(k)
-
+    
     lx[1] <- 100000
-
+    
     for (i in seq_len(k)) {
       dx[i] <- lx[i] * df_lt$qx[i]
       lx[i + 1] <- lx[i] - dx[i]
-
+      
       if (df_lt$agegroup[i] == "85+") { #80
         Lx[i] <- ifelse(
           df_lt$mx[i] > 0,
@@ -497,13 +478,13 @@ life_tables <- pred %>%
           (df_lt$n_interval[i] - df_lt$ax[i]) * dx[i]
       }
     }
-
+    
     Tx[k] <- Lx[k]
-
+    
     for (i in (k - 1):1) {
       Tx[i] <- Tx[i + 1] + Lx[i]
     }
-
+    
     tibble(
       agegroup = df_lt$agegroup,
       mx = df_lt$mx,
@@ -529,156 +510,8 @@ e0_resumen <- life_tables %>%
 
 print(e0_resumen)
 
-# ------------------------------------------------------
-# 10. Esperanza de vida al nacer con paquete demography
-# ------------------------------------------------------
-# 
-# library(demography)
-# 
-# 
-# Age_17       <- c(0, seq(5, 75, by = 5), 85)
-# periodos_num <- c(1980, 1985, 1990, 1995, 2000, 2005, 2010, 2015, 2020)
-# 
-# sub <- pred_hc %>%
-#   filter(region == "Aguadilla", sex == "m") %>%
-#   arrange(period_idx, age_idx)
-# 
-# # Matrices requeridas por demogdata
-# mx_mat  <- matrix(sub$mx,         nrow = 17, ncol = 9,
-#                   dimnames = list(Age_17, periodos_num))
-# 
-# pop_mat <- matrix(sub$population, nrow = 17, ncol = 9,
-#                   dimnames = list(Age_17, periodos_num))
-# 
-# 
-# pr_dd <- demogdata(
-#   data  = mx_mat,
-#   pop   = pop_mat,
-#   ages  = Age_17,
-#   years = periodos_num,
-#   type  = "mortality",
-#   label = "Puerto Rico",
-#   name  = "male"
-# )
-# 
-# lt <- lifetable(pr_dd)
-# print(lt)
-# plot(lt)
-# 
-# 
-# life.expectancy(pr_dd)
-
-############################################################################################
-
-Age  <- c(0, seq(5, 85, by = 5), 85)
-periods <- 1980:2024
-
-#Construir matrices para un municipio y sexo
-  demogdata(
-    data  = df,
-    pop   = df$population,
-    ages  = Age,
-    years = periods_labels,
-    type  = "mortality",
-    label = muni,
-    name  = ifelse(sx == "m", "male", "female")
-  )
-
-pred_hc$sex <- ifelse(pred_hc$sex == 1, "m", "f")
-
-pr_demog <- construir_demogdata(pred_hc, muni = "Aibonito", sx = "m")
-
-#Tabla de vida y e0
-lt  <- lifetable(pr_demog)
-plot(lt)
-
-# e0 por período
-e0_vec <- life.expectancy(pr_demog)
-print(e0_vec)
-plot(life.expectancy(pr_demog), ylab = "Esperanza de vida al nacer", main = "Aibonito — Hombres")
-
-# Todos los municipios
-e0_demog <- data.frame()
-
-for (muni in sort(unique(pred_hc$region))) {
-  for (sx in c("m", "f")) {
-    
-    dd  <- construir_demogdata(pred_hc, muni, sx)
-    e0v <- life.expectancy(dd)   # vector de 9 valores (uno por período)
-    
-    e0_demog <- rbind(e0_demog, data.frame(
-      region = muni,
-      sex    = ifelse(sx == "m", 1, 2),
-      period = periodos_num,
-      e0     = as.numeric(e0v)
-    ))
-  }
-}
-
-e0_demog %>%
-  group_by(sex) %>%
-  summarise(
-    e0_mean = mean(e0, na.rm = TRUE),
-    e0_min  = min(e0,  na.rm = TRUE),
-    e0_max  = max(e0,  na.rm = TRUE)
-  )
-
-
-#################
-
-#Help:: demogdata for lca
-demogdata(data, pop, ages, years, type, label, name, lambda)
-
-#Help::lifetable
-france.lt <- lifetable(fr.mort)
-plot(france.lt)
-lt1990 <- print(lifetable(fr.mort, year = 1990))
-france.LC <- lca(fr.mort)
-france.fcast <- forecast(france.LC)
-france.lt.f <- lifetable(france.fcast)
-plot(france.lt.f)
-# Birth cohort lifetables, 1900-1910
-france.clt <- lifetable(fr.mort, type = "cohort", age = 0, years = 1900:1910)
-# Partial cohort lifetables for 1950
-lifetable(fr.mort, years = 1950)
-
-#Help::life.expectancy
-plot(life.expectancy(fr.mort), ylab = "Life expectancy")
-france.LC <- lca(fr.mort, adjust = "e0", years = 1950:1997)
-france.fcast <- forecast(france.LC, jumpchoice = "actual")
-france.e0.f <- life.expectancy(france.fcast)
-france.fdm <- fdm(extract.years(fr.mort, years = 1950:2006))
-france.fcast <- forecast(france.fdm)
-## Not run:
-##D e0.fcast <- e0(france.fcast, PI = TRUE, nsim = 200)
-##D plot(e0.fcast)
-life.expectancy(fr.mort, type = "cohort", age = 50)
-
-#HOLD
-france.lt <- lifetable(fr.mort)
-plot(france.lt)
-lt1990 <- print(lifetable(fr.mort, year = 1990))
-france.LC <- lca(fr.mort)
-france.fcast <- forecast(france.LC)
-france.lt.f <- lifetable(france.fcast)
-plot(france.lt.f)
-# Birth cohort lifetables, 1900-1910
-france.clt <- lifetable(fr.mort, type = "cohort", age = 0, years = 1900:1910)
-# Partial cohort lifetables for 1950
-lifetable(fr.mort, years = 1950)
-
-#Esperanza de vida al nacer para Puerto Rico 
-pr.demogdata <- demogdata(data = df, pop = pred$population, ages = df$agegroup, years = df$period, type = "mortality", label = "PR")
-pr.lf <-lifetable(df)
-
-pr.fdm <- fdm(extract.years(fr.mort, years = 1950:2006))
-pr.LC <-lca(data = defunciones,adjust = "e0", years = 1980:2025)
-pr.fcast <- forecast(pr.LC,jumpchoice = "actual")
-pr.e0.f <- life.expectancy(pr.fcast)
-
-
 # -----------------------------
-# 11. Previas in INLA
+# 10. Previas in INLA
 # -----------------------------
 
 #Las distribuciones a priori se establecen en la representación interna del parámetro, que puede ser diferente de la escala del parámetro en el modelo. 
@@ -695,7 +528,7 @@ pr.e0.f <- life.expectancy(pr.fcast)
 #Nota: Scale_beta2 y Half Cauchy se implementan en INLA mediante prior = "expression", ya que no existen como opciones por defecto.
 
 # --------------------------------
-# 11.1. Funciones para las previas
+# 10.1. Funciones para las previas
 # --------------------------------
 
 # Convertir precisión a desviación estándar
@@ -705,9 +538,9 @@ sigma <- 1 / sqrt(fit$summary.hyperpar$mean)
 inla.list.models("prior")
 
 #Abre la documentación de una prior específica
-inla.doc("loggamma") #log-Gamma/loggamma/parameters = shape and rate
-inla.doc("gaussian")
-inla.doc("pc")
+#inla.doc("loggamma") #log-Gamma/loggamma/parameters = shape and rate
+#inla.doc("gaussian")
+#inla.doc("pc")
 
 #Lista todos los nombres de priors disponibles en INLA
 names(inla.models()$prior)
@@ -749,7 +582,7 @@ prec.prior <- list(prec = list(prior = "loggamma", param = c(0.01, 0.01)),
                    initial = 4, fixed = FALSE)
 
 # --------------------------------
-# 11.1.1. Previas en el toy model
+# 10.1.1. Previas en el toy model
 # --------------------------------
 #Toy_example
 # formula_inla <- deaths ~
@@ -762,11 +595,11 @@ prec.prior <- list(prec = list(prior = "loggamma", param = c(0.01, 0.01)),
 #     hyper = prec.prior)  
 
 # -----------------------------
-# 11.2. Previas a utilizar
+# 10.2. Previas a utilizar
 # -----------------------------
 
 # --------------------------------------
-# 11.2.1. Modelo con previa Half-Cauchy 
+# 10.2.1. Modelo con previa Half-Cauchy 
 # --------------------------------------
 #Half_Cauchy en INLA bajo la función de expression (Sección 5.3) #gamma = 25;
 HC.prior  = "expression:
@@ -781,20 +614,6 @@ HC.prior  = "expression:
 cat(HC.prior)
 
 #Implementada
-# formula_hc <- deaths ~
-#   factor(sex) +
-#   f(age_idx,    model = "rw1",  constr = TRUE,
-#     hyper = list(prec = list(prior = HC.prior))) +
-#   f(region_idx, model = "bym2", graph = g, constr = TRUE,
-#     hyper = list(
-#       prec = list(prior = HC.prior),
-#       phi  = list(prior = "logitbeta", param = c(0.5, 0.5))))+  # Beta(0.5, 0.5) en escala logarítmica
-#   f(period_idx, model = "rw2",  constr = TRUE,
-#     hyper = list(prec = list(prior = HC.prior))) +
-#   f(region_period_idx, model = "iid",
-#     hyper = list(prec = list(prior = HC.prior)))
-
-#Cambio de parámetros
 formula_hc <- deaths ~
   factor(sex) +
   f(age_idx,    model = "rw1",  constr = TRUE,
@@ -861,7 +680,7 @@ for (m in names(tablas)) {
 }
 
 # -------------------------------------------------------------
-# 11.2.2. Modelo con previa Scale Beta 2 = Beta prime escalada
+# 10.2.2. Modelo con previa Scale Beta 2 = Beta prime escalada
 # -------------------------------------------------------------
 SB2.prior = "expression:
   a = 0.5;
@@ -902,20 +721,6 @@ formula_sb2 <- deaths ~
 #   f(region_period_idx, model = "iid",
 #     hyper = list(prec = list(prior = SB2.prior)))
 # 
-
-#Cambio de parámetros
-formula_sb2 <- deaths ~
-  factor(sex) +
-  f(age_idx,    model = "rw1",  constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior))) +
-  f(region_idx, model = "bym2", graph = g, constr = TRUE,
-    hyper = list(
-      prec = list(prior = SB2.prior),
-      phi  = list(prior = "logitbeta", param = c(0.5, 0.5))))+  # Beta(0.5, 0.5) en escala logarítmica
-  f(period_idx, model = "rw2",  constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior))) +
-  f(region_period_idx, model = "iid",
-    hyper = list(prec = list(prior = SB2.prior)))
 
 fit_sb2 <- inla(formula_sb2,
                 family  = "poisson",
@@ -970,7 +775,7 @@ for (m in names(tablas)) {
 }
 
 # ------------------------------------------------
-# 11.2.3. Modelo con previa previa Half-t Student
+# 10.2.3. Modelo con previa previa Half-t Student
 # ------------------------------------------------
 HT.prior = "expression:
   sigma = exp(-theta/2);
@@ -992,7 +797,8 @@ formula_ht <- deaths ~
   f(region_period_idx, model = "iid",
     hyper = HT.prior)
 
-#Explícita #Implementada 
+#Explícita 
+#Implementada 
 formula_ht <- deaths ~
   factor(sex) +
   f(age_idx,    model = "rw1",  constr = TRUE,
@@ -1005,18 +811,6 @@ formula_ht <- deaths ~
   f(region_period_idx, model = "iid",
     hyper = list(prec = list(prior = HT.prior)))
 
-#Cambio de parámetros
-formula_ht <- deaths ~
-  factor(sex) +
-  f(age_idx,    model = "rw1",  constr = TRUE,
-    hyper = list(prec = list(prior = HT.prior))) +
-  f(region_idx, model = "bym2", graph = g, constr = TRUE,
-    hyper = list(
-      prec = list(prior = HT.prior)))+  
-  f(period_idx, model = "rw2",  constr = TRUE,
-    hyper = list(prec = list(prior = HT.prior))) +
-  f(region_period_idx, model = "iid",
-    hyper = list(prec = list(prior = HT.prior)))
 
 fit_ht <- inla(formula_ht,
                family  = "poisson",
@@ -1068,7 +862,7 @@ for (m in names(tablas)) {
 }
 
 # ----------------------------------------
-# 11.2.4. Modelo con previa Inverse Gamma
+# 10.2.4. Modelo con previa Inverse Gamma
 # ----------------------------------------
 IG.prior = "expression:
   a = 1;
@@ -1078,18 +872,6 @@ IG.prior = "expression:
 "
 
 #Implementada
-formula_ig <- deaths ~
-  factor(sex) +
-  f(age_idx,    model = "rw1",  constr = TRUE,
-    hyper = list(prec = list(prior = IG.prior))) +
-  f(region_idx, model = "bym2", graph = g, constr = TRUE,
-    hyper = list(prec = list(prior = IG.prior))) +
-  f(period_idx, model = "rw2",  constr = TRUE,
-    hyper = list(prec = list(prior = IG.prior))) +
-  f(region_period_idx, model = "iid",
-    hyper = list(prec = list(prior = IG.prior)))
-
-#Cambio de parámetros
 formula_ig <- deaths ~
   factor(sex) +
   f(age_idx,    model = "rw1",  constr = TRUE,
@@ -1152,7 +934,7 @@ for (m in names(tablas)) {
 }
 
 # ----------------------------------------
-# 11.2.5. Modelo con previa PC
+# 10.2.5. Modelo con previa PC
 # ----------------------------------------
 #Previas explícitas por cada parámetro e hiperparámetro de PC priors 
 formula_pc <- deaths ~
@@ -1222,42 +1004,6 @@ for (m in names(tablas)) {
 ##########################################################################
 ##########################################################################
 ##########################################################################
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1359,7 +1105,7 @@ ajuste_modelo_inla <- function(defun,
   
   fit_dynamic <- inla(
     formula           = formula_dinamic, 
-    family            = "zeroinflatedpoisson1", 
+    family            = "poisson", 
     data              = defun, 
     E                 = population, 
     control.predictor = list(compute = TRUE),
@@ -1369,17 +1115,17 @@ ajuste_modelo_inla <- function(defun,
 
 # Ejemplo de uso
 fit_dynamic <- ajuste_modelo_inla(defun = df, 
-                   adya = g,
-                   k = 1, l = 1, m = 1, n = 1,
-                   previa_age = "half.cauchy",
-                   previa_region = "scale.beta2",                   
-                   previa_period = "pc.prior", 
-                   previa_region_period = "scale.beta2",
-                   param_age             = param_gamma_age,
-                   param_region          = param_pqb_region,
-                   param_period          = param_ua_period,                   
-                   param_region_period   = param_pqb_region_period
-                   )
+                                  adya = g,
+                                  k = 1, l = 1, m = 1, n = 1,
+                                  previa_age = "half.cauchy",
+                                  previa_region = "scale.beta2",                   
+                                  previa_period = "pc.prior", 
+                                  previa_region_period = "scale.beta2",
+                                  param_age             = param_gamma_age,
+                                  param_region          = param_pqb_region,
+                                  param_period          = param_ua_period,                   
+                                  param_region_period   = param_pqb_region_period
+)
 # devtools::install_github("julianfaraway/brinla")
 # library(brinla)
 # bri.hyperpar.plot(fit_dynamic, together = T)
@@ -1388,15 +1134,16 @@ fit_dynamic <- ajuste_modelo_inla(defun = df,
 # 11. Análisis de sensitividad 
 # -----------------------------
 
+#Enterada NNGN, muchas gracias. 
 # Corre muy lento. Para 81 modelos tardo cerca de 15 minutos. Esto se puede optimizar usando 
 # AI. Terminando este chunk hay dos optimizaciones que tardan mucho menos
-# EGR. El comentario de arriba fue hace algunas horas. Ahora en tengo esta actualizacion.
+# EGR. El comentario de arriba fue en la noche. Ahora en la manania tengo esta noticia.
 # Al borrar el environment y ejecutar de nuevo el csize.models(), tardo 4.6 minutos.
-# En conclusion, el codigo funciona bien y su tiempo de ejecucion es comparable con el dado por AI.
+# En conlusion, el codigo funciona bien y su tiempo de ejecucion es comparable con el dado por AI.
 # Se tendria que probar con mas juegos de parametros para ver si el do.call() lo sigue 
 # haciendo tan bien como los lapply(). Aun asi, para juegos de previas
 # individuales y parametros individuales (es decir, si solo se quiere ver el DIC o WAIC de una 
-# previa y su parametro, para cada efecto), se puede correr solo la funcion de ajuste_modelo_inla().
+# previas y su parametros para cada efecto), se puede correr solo la funcion de ajuste_modelo_inla().
 # Espero que esto les sea de utilidad.
 fam <- c(half.cauchy="param_gamma_", scale.beta2="param_pqb_", pc.prior="param_ua_")
 efectos <- c(age = "age", region = "region", period = "period", region_period = "region_period")
@@ -1410,12 +1157,12 @@ combinaciones <- expand.grid(
 
 nombres_previas <- apply(combinaciones, 1, function(x) {
   paste(sapply(names(efectos), function(efecto) {
-      previa <- x[efecto]
-      param  <- get(paste0(fam[previa], efecto))
-      paste0(previa, " ", efectos[efecto], " (", paste(unlist(param), collapse = ", "), ")")
-    }),collapse = " | ")
+    previa <- x[efecto]
+    param  <- get(paste0(fam[previa], efecto))
+    paste0(previa, " ", efectos[efecto], " (", paste(unlist(param), collapse = ", "), ")")
+  }),collapse = " | ")
 })
-system.time({
+
 csize.models <- do.call(c, lapply(seq_len(nrow(combinaciones)), function(i) {
   a <- as.character(combinaciones$age[i])
   r <- as.character(combinaciones$region[i])
@@ -1451,7 +1198,6 @@ csize.models <- do.call(c, lapply(seq_len(nrow(combinaciones)), function(i) {
   })
   modelos
 }))
-})
 
 sensitivity_analysis_summary<- tibble(
   prior = names(csize.models),
@@ -1802,7 +1548,6 @@ formula <- deaths ~
     hyper = list(prec = list(prior = "pc.prec", param = pc_period)))
 
 
-
 #Nota: Se deberá crear una formula_inla y un modelo (fit_inla) para cada una.
 
 ###########################################
@@ -1872,7 +1617,6 @@ make_ig_prior <- function(a = 1, b = 0.00005) {
   )
 }
 
-
 #Cambiar previas para el modelo ajustado en INLA
 
 #Argumento del string familia implica el switch de la previa que se quiera emplear
@@ -1887,15 +1631,15 @@ construct_prior <- function(familia, param) {
   )
 }
 ajuste_modelo_inla <- function(df, 
-                                g,
-                                familia_age           = "pc.prec",
-                                familia_region         = "pc.prec",
-                                familia_period         = "pc.prec",
-                                familia_region_period  = "pc.prec",
-                                param_age              = c(0.1, 0.01),
-                                param_region           = c(0.1, 0.01),
-                                param_period           = c(0.1, 0.01),
-                                param_region_period    = c(0.1, 0.01)) {
+                               g,
+                               familia_age           = "pc.prec",
+                               familia_region         = "pc.prec",
+                               familia_period         = "pc.prec",
+                               familia_region_period  = "pc.prec",
+                               param_age              = c(0.1, 0.01),
+                               param_region           = c(0.1, 0.01),
+                               param_period           = c(0.1, 0.01),
+                               param_region_period    = c(0.1, 0.01)) {
   
   formula_dinamic <- deaths ~
     factor(sex) +
@@ -1918,52 +1662,10 @@ ajuste_modelo_inla <- function(df,
   )
 }
 
-
-
-                                    #SB2
-
-
-ajuste_modelo_inla <- function(df, 
-                                g,
-                                familia_age           = "pc.prec",
-                                familia_region         = "pc.prec",
-                                familia_period         = "pc.prec",
-                                familia_region_period  = "pc.prec",
-                                param_age              = c(0.1, 0.01),
-                                param_region           = c(0.1, 0.01),
-                                param_period           = c(0.1, 0.01),
-                                param_region_period    = c(0.1, 0.01)) {
-  
-  formula_dinamic <- deaths ~
-    factor(sex) +
-    f(age_idx, model = "rw1", constr = TRUE,
-      hyper = list(prec = construct_prior(familia_age, param_age))) +
-    f(region_idx, model = "bym2", graph = g, constr = TRUE,
-      hyper = list(prec = construct_prior(familia_region, param_region))) +
-    f(period_idx, model = "rw2", constr = TRUE,
-      hyper = list(prec = construct_prior(familia_period, param_period))) +
-    f(region_period_idx, model = "iid",
-      hyper = list(prec = construct_prior(familia_region_period, param_region_period)))
-  
-  inla(
-    formula           = formula_dinamic, 
-    family            = "poisson", 
-    data              = df, 
-    E                 = population, 
-    control.predictor = list(compute = TRUE),
-    control.compute   = list(config = TRUE, dic = TRUE, waic = TRUE)
-  )
-}
-
-
-
-
-                        #HOLD: Para considerar
+##########################################################################                       
 ##########################################################################
-##########################################################################
-
-#Uno modelo con diversas previas!
-##HOLD: usar diferentes previas en un solo modelo
+#HOLD: Para considerar (cambiar previas para cada efecto)
+#Usar diferentes previas en un solo modelo
 formula_mixed_priors <- deaths ~
   factor(sex) +
   f(age_idx, model = "rw1", constr = TRUE,
@@ -1993,16 +1695,14 @@ fit_mixed_priors <- inla(
 #   familia_region_period = "scale.beta2", param_region_period = c(1, 1, 1)
 # )
 
-
-
 ##########################################################################
 ##########################################################################
 ##########################################################################
 ##########################################################################
 ##########################################################################
-# -----------------------------
-# 12. Análisis de sensitividad 
-# -----------------------------
+# ------------------------------------------------------------------
+# 12. Análisis de sensitividad con previas y parámetros por defecto
+# ------------------------------------------------------------------
 #Ejemplo: Libro de INLA - Sección 5.5
 
 prior.list = list(
@@ -2016,19 +1716,19 @@ prior.list = list(
 
 csize.models <- lapply(prior.list, function(tau.prior) {
   inla(deaths ~
-      factor(sex) +
-      f(age_idx, model = "rw1", constr = TRUE,
-        hyper = tau.prior) +
-      f(region_idx, model = "bym2", graph = g, constr = TRUE) +
-      f(period_idx, model = "rw2", constr = TRUE,
-        hyper = tau.prior) +
-      f(region_period_idx, model = "iid",
-        hyper = tau.prior),
-    family = "poisson",
-    data = df,
-    E = population,
-    control.predictor = list(compute = TRUE),
-    control.compute = list(dic = TRUE, waic = TRUE)
+         factor(sex) +
+         f(age_idx, model = "rw1", constr = TRUE,
+           hyper = tau.prior) +
+         f(region_idx, model = "bym2", graph = g, constr = TRUE) +
+         f(period_idx, model = "rw2", constr = TRUE,
+           hyper = tau.prior) +
+         f(region_period_idx, model = "iid",
+           hyper = tau.prior),
+       family = "poisson",
+       data = df,
+       E = population,
+       control.predictor = list(compute = TRUE),
+       control.compute = list(dic = TRUE, waic = TRUE)
   )
 })
 
@@ -2093,8 +1793,40 @@ hist(inla.hyperpar.sample(10000,fit_sb2))
 hist(inla.hyperpar.sample(10000,fit_ig))
 
 # -----------------------
-# 14. Gráficos - Previas
+# 14. Gráficos
 # -----------------------
+
+inla.hpdmarginal()
+plot(fit_hc)
+
+plot(fit_sb2)
+
+plot(fit_ht)
+
+plot(fit_ig)
+
+plot(fit_pc)
+
+#Ejemplo para observar los intervalos de credibilidad
+df_period <- $summary.random$period_idx
+
+ggplot(df_period, aes(x = ID, y = `0.5quant`)) +
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), 
+              fill = "steelblue", alpha = 0.3) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  labs(x = "Período", y = "Efecto (escala log)", 
+       title = "Efecto temporal RW2 con intervalo de credibilidad 95%") +
+  theme_minimal()
+
+
+
+
+
+
+
+
+
+
 n_samp <- 10000 #Comenzando en 10,000 muestras
 
 samples <- bind_rows(
@@ -2107,9 +1839,9 @@ samples <- bind_rows(
 
 #Leyenda de la gráfica
 samples$prior <- factor(samples$prior,
-                         levels = c("PC prior", "Half-Cauchy",
-                                    "Half-t", "Scale Beta2",
-                                    "Inverse Gamma"))
+                        levels = c("PC prior", "Half-Cauchy",
+                                   "Half-t", "Scale Beta2",
+                                   "Inverse Gamma"))
 
 samples_long <- samples %>%
   pivot_longer(-prior, names_to = "hyperpar", values_to = "value")
@@ -2191,68 +1923,4 @@ plots_list <- lapply(hiperpar_names, function(hp) {
 
 plots_list
 
-#HOLD
-
-
-# ── 1. Calcular cuantiles por hiperparámetro y prior ─────────────────────────
-intervalos <- samples_long %>%
-  group_by(prior, hyperpar) %>%
-  summarise(
-    media  = mean(value,          na.rm = TRUE),
-    q025   = quantile(value, 0.025, na.rm = TRUE),  # IC 95% inferior
-    q25    = quantile(value, 0.25,  na.rm = TRUE),  # IC 50% inferior
-    q75    = quantile(value, 0.75,  na.rm = TRUE),  # IC 50% superior
-    q975   = quantile(value, 0.975, na.rm = TRUE),  # IC 95% superior
-    .groups = "drop"
-  )
-
-# ── 2. Gráfico de intervalos por hiperparámetro ───────────────────────────────
-ggplot(intervalos, aes(x = prior, color = prior, fill = prior)) +
-  
-  # Banda 95%
-  geom_linerange(aes(ymin = q025, ymax = q975),
-                 linewidth = 4, alpha = 0.2) +
-  
-  # Banda 50%
-  geom_linerange(aes(ymin = q25, ymax = q75),
-                 linewidth = 4, alpha = 0.4) +
-  
-  # Media posterior
-  geom_point(aes(y = media), size = 3, shape = 21,
-             fill = "white", stroke = 1.2) +
-  
-  facet_wrap(~ hyperpar, scales = "free_y", ncol = 2) +
-  
-  scale_color_manual(values = c(
-    "PC prior"      = "#2C7BB6",
-    "Half-Cauchy"   = "#D7191C",
-    "Half-t"        = "#1A9641",
-    "Scale Beta2"   = "#FF7F00",
-    "Inverse Gamma" = "#984EA3"
-  )) +
-  scale_fill_manual(values = c(
-    "PC prior"      = "#2C7BB6",
-    "Half-Cauchy"   = "#D7191C",
-    "Half-t"        = "#1A9641",
-    "Scale Beta2"   = "#FF7F00",
-    "Inverse Gamma" = "#984EA3"
-  )) +
-  
-  labs(
-    title    = "Distribución posterior de hiperparámetros por prior",
-    subtitle = "Punto = media posterior  |  Banda oscura = IC 50%  |  Banda clara = IC 95%",
-    x        = "Prior",
-    y        = "Precisión τ (escala posterior)",
-    color    = "Prior",
-    fill     = "Prior"
-  ) +
-  
-  theme_bw(base_size = 11) +
-  theme(
-    axis.text.x      = element_text(angle = 30, hjust = 1, size = 8),
-    strip.background = element_rect(fill = "grey90"),
-    strip.text       = element_text(size = 9),
-    legend.position  = "bottom",
-    plot.subtitle    = element_text(size = 9, color = "grey40")
-  )
-
+#Intervalos de confianza
