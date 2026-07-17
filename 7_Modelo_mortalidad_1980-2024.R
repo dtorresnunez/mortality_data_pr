@@ -3,7 +3,10 @@
 ################################################
 #7 - 2026_30_06
 
+<<<<<<< HEAD
+=======
 #Trabajo de Prueba 7-5-2026 
+>>>>>>> 2c1b352945667de11e89ad1df595c662970f6a79
 
 #Paquetes
 library(INLA)
@@ -386,7 +389,7 @@ pred_demo$sex <- ifelse(pred$sex == 1, "m", "f")
 pred_demo <- pred_demo %>%
   filter(region == "Adjuntas", period == "1985-1990", sex == "f")
 nMx <- pred_demo$mx
-Age <- c(0, 1, (seq(5,80,by=5)))
+Age <- c(0, 1, (seq(5,85,by=5)))
 AgeInt <- inferAgeIntAbr(vec = nMx)
 PR.lifetable <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, Sex = "f",mod = FALSE)
 PR.lifetable
@@ -397,7 +400,7 @@ pred_demo$sex <- ifelse(pred_demo$sex == 1, "m", "f")
 municipios_demo <- sort(unique(pred_demo$region))
 periodos_demo   <- sort(unique(pred_demo$period))
 sexos      <- c("m", "f")
-Age <- c(0, 1, seq(5, 80, by = 5)) 
+Age <- c(0, 1, seq(5, 85, by = 5)) 
 #Age <- c(0, seq(5, 85, by = 5))
 Age_nuevo <- c(0, seq(5, 85, by = 5)) #85
 tablas <- list()
@@ -453,7 +456,7 @@ pred_demo$sex <- ifelse(pred_demo$sex == 1, "m", "f")
 municipios_demo <- sort(unique(pred_demo$region))
 periodos_demo   <- sort(unique(pred_demo$period))
 sexos      <- c("m", "f")
-Age <- c(0, 1, seq(5, 80, by = 5)) 
+Age <- c(0, 1, seq(5, 85, by = 5)) 
 #Age <- c(0, seq(5, 85, by = 5))
 Age_nuevo <- c(0, seq(5, 85, by = 5)) #85
 tablas <- list()
@@ -505,7 +508,7 @@ tb
 
 
 nMx    <- pred$mx
-Age    <- c(0, 1, seq(5, 80, by = 5))
+Age    <- c(0, 1, seq(5, 85, by = 5))
 AgeInt <- inferAgeIntAbr(vec = nMx)
 
 mx_pclm <- graduate_pclm(Value = nMx, Age = Age, AgeInt = AgeInt, OAnew = 115, OAG = TRUE)
@@ -520,7 +523,7 @@ pred_pclm$sex <- ifelse(pred_pclm$sex == 1, "m", "f")
 municipios_pclm <- sort(unique(pred_pclm$region))
 periodos_pclm   <- sort(unique(pred_pclm$period))
 sexos      <- c("m", "f")
-Age <- c(0, 1, seq(5, 80, by = 5))
+Age <- c(0, 1, seq(5, 85, by = 5))
 tablas_pclm <- list()
 for (muni in municipios_pclm) {
   for (per in periodos_pclm) {
@@ -574,7 +577,7 @@ pred_sprague$sex <- ifelse(pred_sprague$sex == 1, "m", "f")
 municipios_sprague <- sort(unique(pred_sprague$region))
 periodos_sprague   <- sort(unique(pred_sprague$period))
 sexos      <- c("m", "f")
-Age <- c(0, 1, seq(5, 80, by = 5))
+Age <- c(0, 1, seq(5, 85, by = 5))
 tablas_sprague <- list()
 for (muni in municipios_sprague) {
   for (per in periodos_sprague) {
@@ -633,7 +636,7 @@ pred_beers$sex <- ifelse(pred_beers$sex == 1, "m", "f")
 municipios_beers <- sort(unique(pred_beers$region))
 periodos_beers   <- sort(unique(pred_beers$period))
 sexos      <- c("m", "f")
-Age <- c(0, 1, seq(5, 80, by = 5))
+Age <- c(0, 1, seq(5, 85, by = 5))
 tablas_beers <- list()
 for (muni in municipios_beers) {
   for (per in periodos_beers) {
