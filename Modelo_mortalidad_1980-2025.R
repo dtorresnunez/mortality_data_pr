@@ -1359,7 +1359,7 @@ ajuste_modelo_inla <- function(defun,
   
   fit_dynamic <- inla(
     formula           = formula_dinamic, 
-    family            = "poisson", 
+    family            = "zeroinflatedpoisson1", 
     data              = defun, 
     E                 = population, 
     control.predictor = list(compute = TRUE),
@@ -1390,13 +1390,13 @@ fit_dynamic <- ajuste_modelo_inla(defun = df,
 
 # Corre muy lento. Para 81 modelos tardo cerca de 15 minutos. Esto se puede optimizar usando 
 # AI. Terminando este chunk hay dos optimizaciones que tardan mucho menos
-# EGR. El comentari de arriba fue en la noche. Ahora en la manania tengo esta noticia.
+# EGR. El comentario de arriba fue hace algunas horas. Ahora en tengo esta actualizacion.
 # Al borrar el environment y ejecutar de nuevo el csize.models(), tardo 4.6 minutos.
-# En conlusion, el codigo funciona bien y su tiempo de ejecucion es comparable con el dado por AI.
+# En conclusion, el codigo funciona bien y su tiempo de ejecucion es comparable con el dado por AI.
 # Se tendria que probar con mas juegos de parametros para ver si el do.call() lo sigue 
 # haciendo tan bien como los lapply(). Aun asi, para juegos de previas
 # individuales y parametros individuales (es decir, si solo se quiere ver el DIC o WAIC de una 
-# previas y su parametros para cada efecto), se puede correr solo la funcion de ajuste_modelo_inla().
+# previa y su parametro, para cada efecto), se puede correr solo la funcion de ajuste_modelo_inla().
 # Espero que esto les sea de utilidad.
 fam <- c(half.cauchy="param_gamma_", scale.beta2="param_pqb_", pc.prior="param_ua_")
 efectos <- c(age = "age", region = "region", period = "period", region_period = "region_period")
@@ -1415,7 +1415,7 @@ nombres_previas <- apply(combinaciones, 1, function(x) {
       paste0(previa, " ", efectos[efecto], " (", paste(unlist(param), collapse = ", "), ")")
     }),collapse = " | ")
 })
-
+system.time({
 csize.models <- do.call(c, lapply(seq_len(nrow(combinaciones)), function(i) {
   a <- as.character(combinaciones$age[i])
   r <- as.character(combinaciones$region[i])
@@ -1451,6 +1451,7 @@ csize.models <- do.call(c, lapply(seq_len(nrow(combinaciones)), function(i) {
   })
   modelos
 }))
+})
 
 sensitivity_analysis_summary<- tibble(
   prior = names(csize.models),
