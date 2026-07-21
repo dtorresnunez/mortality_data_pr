@@ -1026,7 +1026,7 @@ fit_ig <- inla(formula_ig,
                family  = "poisson",
                data    = df,
                E       = population,
-               control.compute = list(cpo = TRUE, dic = TRUE, waic = TRUE))
+               control.compute = list(config = TRUE, cpo = TRUE, dic = TRUE, waic = TRUE))
 
 
 # e0 para la previa Inverse Gamma
@@ -1886,6 +1886,57 @@ sensitivity_analysis_summary<- tibble(
 
 print(sensitivity_analysis_summary)
 
+
+
+
+#################################################################################
+#################################################################################
+#e0 observado (directo,crudo, no se suavizan las tasas)
+pred_directo <- df %>%
+  mutate(
+    mx = pmax(deaths / population, 1e-6)   # <- mx crudo, no suavizado
+  ) %>%
+  left_join(age_params, by = "agegroup")
+
+pred_directo$sex <- ifelse(pred_directo$sex == 1, "m", "f")
+municipios <- sort(unique(pred_directo$region))
+periodos   <- sort(unique(pred_directo$period))
+sexos      <- c("m", "f")
+Age <- c(0, 1, seq(5, 85, by = 5))
+
+tablas_directo <- list()
+for (muni in municipios) {
+  for (per in periodos) {
+    for (sx in sexos) {
+      pred_sub <- pred_directo %>%
+        filter(region == muni, period == per, sex == sx)
+      nMx    <- pred_sub$mx
+      AgeInt <- inferAgeIntAbr(vec = nMx)
+      tablas_directo[[muni]][[per]][[sx]] <- lt_abridged(
+        nMx = nMx, AgeInt = AgeInt, Age = Age, 
+        a0rule = "ak", axmethod = "pas", Sex = sx, mod = FALSE
+      )
+    }
+  }
+}
+
+e0_resumen_directo <- data.frame()
+for (m in names(tablas_directo)) {
+  for (p in names(tablas_directo[[m]])) {
+    for (s in c("m", "f")) {
+      tb <- tablas_directo[[m]][[p]][[s]]
+      sexnum <- if (s == "m") 1 else 2
+      e0_resumen_directo <- rbind(
+        e0_resumen_directo,
+        data.frame(period = p, region = m, sex = sexnum, e0_observada = tb$ex[1])
+      )
+    }
+  }
+}
+e0_resumen_directo
+#################################################################################
+#################################################################################
+
 # --------------------------------
 # 13. Sampling from the posterior
 # --------------------------------
@@ -1929,11 +1980,132 @@ hist(inla.hyperpar.sample(10000,fit_ht))
 hist(inla.hyperpar.sample(10000,fit_sb2))
 hist(inla.hyperpar.sample(10000,fit_ig))
 
+
+#Calcula el intervalo de mayor densidad posterior (HDP)
+inla.hpdmarginal()
+
+#Ver qué marginales están disponibles 
+names(fit_pc$marginals.hyperpar)
+
+#Ejemplo: HPD al 95% para la precisión del efecto de edad
+hpd_age <- inla.hpdmarginal(0.95, fit_pc$marginals.hyperpar$`Precision for age_idx`)
+print(hpd_age)
+
+#Transformar el marginal de precisión a sigma usando inla.tmarginal()
+marginal_sigma_age <- inla.tmarginal(function(x) 1/sqrt(x), 
+                                     fit_pc$marginals.hyperpar$`Precision for age_idx`)
+hpd_sigma_age <- inla.hpdmarginal(0.95, marginal_sigma_age)
+print(hpd_sigma_age)
+
+#Comparar las HPD de cada previa
+modelos_previa <- list(
+  "PC prior"      = fit_pc,
+  "Half-Cauchy"   = fit_hc,
+  "Half-t"        = fit_ht,
+  "Scale Beta2"   = fit_sb2,
+  "Inverse Gamma" = fit_ig
+)
+
+hpd_comparacion <- lapply(names(modelos_previa), function(nombre) {
+  m <- modelos_previa[[nombre]]
+  marginal_sigma <- inla.tmarginal(function(x) 1/sqrt(x), 
+                                   m$marginals.hyperpar$`Precision for age_idx`)
+  hpd <- inla.hpdmarginal(0.95, marginal_sigma)
+  data.frame(prior = nombre, hpd_low = hpd[1], hpd_high = hpd[2])
+}) %>% bind_rows()
+print(hpd_comparacion)
+
 # -----------------------
 # 14. Gráficos
 # -----------------------
 
-inla.hpdmarginal()
+###Población completa
+population_plot <- function(df, per) {
+  plot <- ggplot(df %>%
+                   filter(period == per), aes(x = fct_reorder(region, population), y = population)) +
+    geom_col(fill = "firebrick") + 
+    scale_y_continuous() +
+    coord_flip() +
+    labs(title = "Población expuesta al riesgo por municipio",
+         subtitle = paste0("Puerto Rico, ", per),
+         x = "",
+         y = "Población") + theme_minimal() +
+    theme(axis.text.y = element_text(size = 6),
+          axis.text.x = element_text(size = 8))
+  return(plot)
+}
+
+population_plot(df, "2020-2024")
+
+
+
+###Tasa de mortalidad agrupada por períodos quinquenales
+#OJO:Cambiar la escala de mx
+
+mx_period_plot <- function(dat, muni) {
+  
+  plot <- ggplot(dat %>% filter(region == muni), aes(x = factor(period),
+                                                     y = mx * 1000,
+                                                     group = factor(agegroup),
+                                                     color = factor(agegroup))) +
+    geom_line() + geom_point() + theme_bw() +
+    scale_x_discrete() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    scale_color_discrete("Grupo de edad") +
+    labs(x = "Periodo", y = "mx",
+         title = paste0("Age Specific Mortality Rate (per 1,000)", ", ", muni))
+  return(plot)
+  
+}
+
+mx_period_plot(pred_pc, "San Juan")
+
+###OJO: Intenté cambiarla, corroborar si está correcto!
+mx_period_plot <- function(dat, muni) {
+  
+  plot <- ggplot(dat %>% filter(region == muni), aes(x = factor(period),
+                                                     y = mx,
+                                                     group = factor(agegroup),
+                                                     color = factor(agegroup))) +
+    geom_line() + geom_point() + theme_bw() +
+    scale_x_discrete() +
+    scale_y_log10(labels = scales::comma) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    scale_color_discrete("Grupo de edad") +
+    labs(x = "Periodo", y = "mx (escala log10)",
+         title = paste0("Age Specific Mortality Rate (escala log), ", muni))
+  return(plot)
+  
+}
+mx_period_plot(pred_pc, "San Juan")
+
+
+####Tasa de mortalidad por grupos quinquenales
+mx_municipio <- function(dat, muni) {
+  plot <- ggplot(dat %>% filter(region == muni), aes(x = factor(agegroup), 
+                                                     y = mx * 1000, 
+                                                     group = factor(period), 
+                                                     color = factor(period))) +
+    geom_line() + geom_point() + theme_bw() + 
+    scale_x_discrete() +
+    theme(
+      axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 10),
+      legend.text = element_text(size = 12),
+      axis.text.y  = element_text(size = 11),
+      legend.title = element_text(size = 13)  ) +
+    scale_color_discrete("Periodo") +
+    guides(color = guide_legend(ncol = 1)) + 
+    labs(x = "Grupo de edad", y = "mx",
+         title = paste0("Age Specific Mortality Rate (per 1,000)", ", ", muni))
+  return(plot)
+}
+
+mx_municipio(pred_pc, "San Juan")
+
+
+
+
+###Previas para observar los efectos de cada modelo
 plot(fit_hc)
 
 plot(fit_sb2)
@@ -1944,17 +2116,244 @@ plot(fit_ig)
 
 plot(fit_pc)
 
-#Ejemplo para observar los intervalos de credibilidad
-df_period <- summary.random$period_idx
+###Comparaciones con e0 observado vs e0 estimado
+#Combina e0 observado con e0 estimado de cualquiera de tus modelos
+#e0_resumen_pc , e0_resumen_hc, e0_resumen_sb2, e0_resumen_ht, e0_resumen_ig
+construir_comparacion_e0 <- function(e0_modelado) {
+  e0_resumen_directo %>%
+    rename(e0_observada = e0_observada) %>%
+    left_join(
+      e0_modelado %>% rename(e0_estimada = e0),
+      by = c("period", "region", "sex")
+    )
+}
 
-ggplot(df_period, aes(x = ID, y = `0.5quant`)) +
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), 
-              fill = "steelblue", alpha = 0.3) +
-  geom_line(color = "steelblue", linewidth = 1) +
-  labs(x = "Período", y = "Efecto (escala log)", 
-       title = "Efecto temporal RW2 con intervalo de credibilidad 95%") +
-  theme_minimal()
+comparacion_pc <- construir_comparacion_e0(e0_resumen_pc)
+comparacion_hc  <- construir_comparacion_e0(e0_resumen_hc)
+comparacion_sb2 <- construir_comparacion_e0(e0_resumen_sb2)
+comparacion_ht  <- construir_comparacion_e0(e0_resumen_ht)
+comparacion_ig  <- construir_comparacion_e0(e0_resumen_ig)
 
+
+###Comparación e0 observado vs e0 estimado por municipio
+e0_model_plot <- function(dat, per, col, llh) {
+  plot <- ggplot(dat %>%
+                   filter(period == per), aes(x = fct_reorder(region, e0_observada), 
+                                              y = e0_estimada)) +
+    geom_point(color = col, size = 1.8) +
+    geom_point(aes(y = e0_observada), shape = 1) +
+    coord_flip() +
+    facet_wrap(~ sex, labeller = as_labeller(c(`1` = "Hombres", `2` = "Mujeres"))) +
+    theme_minimal() +
+    labs(title = paste0("e0 por municipio (estimada vs. observada), ", per, ", ", llh), 
+         y = "e0", x = "") +
+    theme(axis.title.x = element_text(size = 6))
+  return(plot)
+}
+
+e0_model_plot(comparacion_pc, "2020-2024", "firebrick", "PC prior")
+
+
+###Comparación e0 observado vs e0 estimado por periodo
+e0_municipio_plot <- function(dat, muni, llh) {
+  plot <- ggplot(dat %>%
+                   filter(region == muni), aes(x = period, y = e0_estimada)) +
+    geom_point(color = "red", size = 1.8) +
+    geom_point(aes(y = e0_observada), shape = 1) +
+    facet_wrap(~ sex, labeller = as_labeller(c(`1` = "Hombres", `2` = "Mujeres"))) +
+    theme_minimal() +
+    labs(title = paste0("e0 estimada vs. observada para ", muni, ", 1980-2025, ", llh), 
+         y = "e0", x = "") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  return(plot)
+}
+
+e0_municipio_plot(comparacion_pc, "San Juan", "PC prior")
+
+
+###HOLD
+e0_dir_vs_sae_plot <- function(dat, per, llh) {
+  plot <- ggplot(dat %>% filter(period == per), 
+                 aes(x = e0_observada, y = e0_estimada, color = factor(sex))) +
+    geom_point(shape = 1) +
+    geom_abline(slope = 1, intercept = 0, color = "red") +
+    geom_smooth(method = "lm", se = FALSE, linewidth = 0.6) +
+    scale_color_manual(values = c("1" = "steelblue", "2" = "orange"),
+                       labels = c("Hombres", "Mujeres"), name = "Sexo") +
+    theme_minimal() +
+    labs(title = paste0("e0: directo vs. modelado, ", per, ", ", llh),
+         x = "e0 directo", y = "e0 modelado")
+  return(plot)
+}
+
+e0_dir_vs_sae_plot(comparacion_pc, "2020-2024", "PC prior")
+
+
+###HOLD
+###e0 estimada por periodo
+e0_model_plot <- function(dat, per, col, llh) {
+  plot <- ggplot(dat %>%
+                   filter(period == per), 
+                 aes(x = fct_reorder(region, e0_estimada), 
+                     y = e0_estimada,
+                     ymin = e0_lower,
+                     ymax = e0_upper)) +
+    geom_pointrange(color = col, size = 0.4, linewidth = 0.6) +
+    coord_flip() +
+    facet_wrap(~ sex, labeller = as_labeller(c(`1` = "Hombres", `2` = "Mujeres"))) +
+    theme_minimal() +
+    labs(title = paste0("e0 por municipio (mediana e IC 95%), ", per, ", ", llh), 
+         y = "e0", x = "") +
+    theme(axis.title.x = element_text(size = 6),
+          axis.text.y = element_text(size = 7))
+  
+  return(plot)
+}
+
+e0_model_plot(comparacion_pc, "2020-2024", "purple", "PC prior")
+
+###Comparando todas las previas para sus correspondientes e0 estimados
+comparacion_todas <- bind_rows(
+  comparacion_pc  %>% mutate(previa = "PC prior"),
+  comparacion_hc  %>% mutate(previa = "Half-Cauchy"),
+  comparacion_sb2 %>% mutate(previa = "Scale Beta2"),
+  comparacion_ht  %>% mutate(previa = "Half-t"),
+  comparacion_ig  %>% mutate(previa = "Inverse Gamma")
+)
+
+
+ggplot(comparacion_todas %>% filter(period == "2020-2024", sex == 2),
+       aes(x = fct_reorder(region, e0_estimada), y = e0_estimada, 
+           ymin = e0_lower, ymax = e0_upper, color = previa)) +
+  geom_pointrange(position = position_dodge(width = 0.6), size = 0.2) +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "e0 municipal (mujeres, 2020-2024) por previa",
+       y = "e0", x = "")
+
+
+
+
+
+####Cálculo de e0 con intervalos de credibilidad
+
+calcular_e0_inla <- function(modelo_inla, df, age_params, Age, nsamples = 1000) {
+  datos_directo <- df %>%
+    mutate(mx = pmax(deaths / population, 1e-6),
+           sex_chr = ifelse(sex == 1, "m", "f")) %>%
+    left_join(age_params, by = "agegroup")
+  
+  e0_obs_list <- list()
+  for (reg in unique(datos_directo$region)) {
+    for (per in unique(datos_directo$period)) {
+      for (sx in c("m", "f")) {
+        sub <- datos_directo %>%
+          filter(region == reg, period == per, sex_chr == sx) %>%
+          arrange(age_idx)
+        nMx <- sub$mx
+        if (length(nMx) <= 5) next
+        AgeInt <- inferAgeIntAbr(vec = nMx)
+        tb <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, Sex = sx,
+                          a0rule = "ak", axmethod = "pas", mod = FALSE)
+        e0_obs_list[[length(e0_obs_list) + 1]] <- data.frame(
+          region = reg, period = per, sex = ifelse(sx == "m", 1, 2),
+          e0_observada = tb$ex[1]
+        )
+      }
+    }
+  }
+  e0_observada_df <- bind_rows(e0_obs_list)
+  
+  # Muestras posteriores del predictor
+  samples <- inla.posterior.sample(nsamples, modelo_inla)
+  log_lambda_matrix_all <- inla.posterior.sample.eval(
+    function(...) { Predictor }, 
+    samples
+  )
+  log_lambda_matrix <- log_lambda_matrix_all[1:nrow(df), , drop = FALSE]
+  mx_matrix <- pmax(exp(log_lambda_matrix), 1e-6)
+  
+  # e0 estimado por muestra 
+  datos_idx <- df %>%
+    mutate(sex_chr = ifelse(sex == 1, "m", "f")) %>%
+    left_join(age_params, by = "agegroup")
+  combinaciones <- datos_idx %>% distinct(region, period, sex_chr)
+  e0_sim_list <- vector("list", nsamples * nrow(combinaciones))
+  contador <- 0
+  for (s in seq_len(nsamples)) {
+    datos_idx$mx <- mx_matrix[, s]
+    for (i in seq_len(nrow(combinaciones))) {
+      reg <- combinaciones$region[i]
+      per <- combinaciones$period[i]
+      sx  <- combinaciones$sex_chr[i]
+      sub <- datos_idx %>%
+        filter(region == reg, period == per, sex_chr == sx) %>%
+        arrange(age_idx)
+      nMx <- sub$mx
+      if (length(nMx) <= 5) next
+      AgeInt <- inferAgeIntAbr(vec = nMx)
+      tb <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, Sex = sx,
+                        a0rule = "ak", axmethod = "pas", mod = FALSE)
+      contador <- contador + 1
+      e0_sim_list[[contador]] <- data.frame(
+        sim = s, region = reg, period = per,
+        sex = ifelse(sx == "m", 1, 2), e0 = tb$ex[1]
+      )
+    }
+    if (s %% 100 == 0) message("Muestra ", s, " de ", nsamples)
+  }
+  e0_sim_df <- bind_rows(e0_sim_list)
+  
+  # mediana + IC 95%
+  e0_estimada_df <- e0_sim_df %>%
+    group_by(region, period, sex) %>%
+    summarise(
+      e0_estimada = median(e0, na.rm = TRUE),
+      e0_lower    = quantile(e0, 0.025, na.rm = TRUE),
+      e0_upper    = quantile(e0, 0.975, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # e0 observada y estimada
+  e0_final <- left_join(e0_observada_df, e0_estimada_df, by = c("region", "period", "sex")) %>%
+    arrange(region, period, sex) %>%
+    mutate(est_eval = case_when(
+      between(e0_observada, e0_lower, e0_upper) ~ "Estimación adecuada",
+      e0_observada < e0_lower ~ "> e0 observada",
+      e0_observada > e0_upper ~ "< e0 observada"
+    ))
+  
+  return(e0_final)
+}
+# 10,100 y 1000
+e0_pc_IC  <- calcular_e0_inla(fit_pc,  df, age_params, Age, nsamples = 10)
+e0_hc_IC  <- calcular_e0_inla(fit_hc,  df, age_params, Age, nsamples = 10)
+e0_sb2_IC <- calcular_e0_inla(fit_sb2, df, age_params, Age, nsamples = 10)
+e0_ht_IC  <- calcular_e0_inla(fit_ht,  df, age_params, Age, nsamples = 10)
+e0_ig_IC  <- calcular_e0_inla(fit_ig,  df, age_params, Age, nsamples = 10)
+
+e0_forest_plot(e0_pc_IC, "2020-2024", 1, "purple", "PC prior")
+e0_forest_plot(e0_hc_IC, "2020-2024", 1, "purple", "Half-Cauchy")
+e0_forest_plot(e0_sb2_IC, "2020-2024", 1, "purple", "Scale-Beta2")
+e0_forest_plot(e0_ht_IC, "2020-2024", 1, "purple", "Half-t")
+e0_forest_plot(e0_ig_IC, "2020-2024", 1, "purple", "Inverse-Gamma")
+
+e0_model_plot(e0_pc_IC, "2020-2024", "purple", "PC prior")
+e0_model_plot(e0_hc_IC, "2020-2024", "purple", "Half-Cauchy")
+e0_model_plot(e0_sb2_IC, "2020-2024", "purple", "Scale-Beta2")
+e0_model_plot(e0_ht_IC, "2020-2024", "purple", "Half-t")
+e0_model_plot(e0_ig_IC, "2020-2024", "purple", "Inverse-Gamma")
+
+
+#Comentario:El patrón que vemos es exactamente el comportamiento esperado del shrinkage bayesiano
+#que hemos venido discutiendo. En municipios pequeños con pocos eventos, el modelo se aleja del observado
+#y encoge hacia el promedio. Eso no es un error del modelo, sino que es la corrección que queremos para eliminar el ruido. 
+#Donde hay más datos, menos shrinkage.
+
+########################################################################################
+########################################################################################
+########################################################################################
+#Para el futuro - efectos de cada modelo 
 n_samp <- 10000 #Comenzando en 10,000 muestras
 
 samples <- bind_rows(
@@ -2050,7 +2449,4 @@ plots_list <- lapply(hiperpar_names, function(hp) {
 })
 
 plots_list
-
-
-#Intervalos de confianza
 
