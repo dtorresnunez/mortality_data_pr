@@ -2222,7 +2222,7 @@ comparacion_todas <- bind_rows(
   comparacion_ig  %>% mutate(previa = "Inverse Gamma")
 )
 
-
+#Mujeres, 2020-2024
 ggplot(comparacion_todas %>% filter(period == "2020-2024", sex == 2),
        aes(x = fct_reorder(region, e0_estimada), y = e0_estimada, 
            ymin = e0_lower, ymax = e0_upper, color = previa)) +
@@ -2232,7 +2232,15 @@ ggplot(comparacion_todas %>% filter(period == "2020-2024", sex == 2),
   labs(title = "e0 municipal (mujeres, 2020-2024) por previa",
        y = "e0", x = "")
 
-
+#Hombres, 2020-2024
+ggplot(comparacion_todas %>% filter(period == "2020-2024", sex == 1),
+       aes(x = fct_reorder(region, e0_estimada), y = e0_estimada, 
+           ymin = e0_lower, ymax = e0_upper, color = previa)) +
+  geom_pointrange(position = position_dodge(width = 0.6), size = 0.2) +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "e0 municipal (hombres, 2020-2024) por previa",
+       y = "e0", x = "")
 
 
 
@@ -2333,11 +2341,20 @@ e0_sb2_IC <- calcular_e0_inla(fit_sb2, df, age_params, Age, nsamples = 10)
 e0_ht_IC  <- calcular_e0_inla(fit_ht,  df, age_params, Age, nsamples = 10)
 e0_ig_IC  <- calcular_e0_inla(fit_ig,  df, age_params, Age, nsamples = 10)
 
+#Hombres, 2020-2024
 e0_forest_plot(e0_pc_IC, "2020-2024", 1, "purple", "PC prior")
 e0_forest_plot(e0_hc_IC, "2020-2024", 1, "purple", "Half-Cauchy")
 e0_forest_plot(e0_sb2_IC, "2020-2024", 1, "purple", "Scale-Beta2")
 e0_forest_plot(e0_ht_IC, "2020-2024", 1, "purple", "Half-t")
 e0_forest_plot(e0_ig_IC, "2020-2024", 1, "purple", "Inverse-Gamma")
+
+#Mujeres, 2020-2024
+e0_forest_plot(e0_pc_IC, "2020-2024", 2, "purple", "PC prior")
+e0_forest_plot(e0_hc_IC, "2020-2024", 2, "purple", "Half-Cauchy")
+e0_forest_plot(e0_sb2_IC, "2020-2024", 2, "purple", "Scale-Beta2")
+e0_forest_plot(e0_ht_IC, "2020-2024", 2, "purple", "Half-t")
+e0_forest_plot(e0_ig_IC, "2020-2024", 2, "purple", "Inverse-Gamma")
+
 
 e0_model_plot(e0_pc_IC, "2020-2024", "purple", "PC prior")
 e0_model_plot(e0_hc_IC, "2020-2024", "purple", "Half-Cauchy")
