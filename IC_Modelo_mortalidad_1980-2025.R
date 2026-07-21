@@ -22,6 +22,7 @@ library(MortalityLaws)
 library(epitools)
 library(PHEindicatormethods)
 library(demography)
+library(forecast)
 library(readxl)# EGR
 
 set.seed(123)
