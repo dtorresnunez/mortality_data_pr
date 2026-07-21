@@ -2249,7 +2249,7 @@ e0_dir_vs_sae_plot <- function(dat, per, llh) {
     scale_color_manual(values = c("1" = "steelblue", "2" = "orange"),
                        labels = c("Hombres", "Mujeres"), name = "Sexo") +
     theme_minimal() +
-    labs(title = paste0("e0: directo vs. modelado, ", per, ", ", llh),
+    labs(title = paste0("e0 observado vs estimado, ", per, ", ", llh),
          x = "e0 directo", y = "e0 modelado")
   return(plot)
 }
