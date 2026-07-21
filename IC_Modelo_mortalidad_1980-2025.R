@@ -170,6 +170,23 @@ defunciones_orig <- read_dta(
   count(fips3, period, agegroup, sex, name = "deaths")
 
 # EGR: ahora hay que poner las defunciones de la base nueva en el formato que ya se tiene
+# EGR: se deben corregir FIPS3
+pedazo <- read_excel(
+  file.path(data_dir, "2026-07-16_corregidas_defunciones_wide_2015-2023.xlsx"),
+  sheet = "Sheet1"
+)
+pedazo <- unique(data.frame(
+  muni       = pedazo$muni,
+  fips3_xlsx = str_pad(as.character(pedazo$fips3), 3, "left", "0")
+))
+pedazo <- pedazo[!is.na(pedazo$muni), ]
+pedazo$fips3_ok <- muni_xwalk$fips3[
+  match(tolower(chartr("áéíóúüñ", "aeiouun", pedazo$muni)),
+        tolower(chartr("áéíóúüñ", "aeiouun", muni_xwalk$region)))
+]
+sum(is.na(pedazo$fips3_ok))
+pedazo[pedazo$fips3_xlsx != pedazo$fips3_ok & !is.na(pedazo$fips3_ok), ]
+# EGR: correcion hecha sobre FIPS3
 defunciones_corr <- read_excel(
   file.path(data_dir, "2026-07-16_corregidas_defunciones_wide_2015-2023.xlsx"),
   sheet = "Sheet1"
@@ -186,8 +203,12 @@ defunciones_corr <- read_excel(
   mutate(
     edad  = as.numeric(edad),
     sex   = as.integer(sex),
-    fips3 = str_pad(as.character(fips3), 3, "left", "0")   # el xlsx trae 1, 3, 5...
-  ) %>%
+    fips3 = str_pad(as.character(fips3), 3, "left", "0"),   # el xlsx trae 1, 3, 5...
+    fips3 = recode(fips3,
+                   "011" = "013", "013" = "015", "015" = "011",
+                   "055" = "057", "057" = "059", "059" = "061",
+                   "061" = "063", "063" = "055") # EGR: se re-mapea FIPS3 para los pedazos indentificados en pedazo[pedazo$fips3_xlsx != pedazo$fips3_ok & !is.na(pedazo$fips3_ok), ] 
+      ) %>%
   filter(
     !is.na(fips3),
     fips3 != "",
@@ -533,11 +554,11 @@ fila_hom <- hom[which.max(hom$e0), ]
 fila_muj
 fila_hom
 
-#Periodo 2015-2020, para comparar con el e0 nacional 
-muj <- e0_resumen_demotools[e0_resumen_demotools$sex == 2, ] %>% filter(period == "2015-2020")
+#Periodo 2015-2019, para comparar con el e0 nacional 
+muj <- e0_resumen_demotools[e0_resumen_demotools$sex == 2, ] %>% filter(period == "2015-2019") # EGR: se corrige la etiqueta
 fila_muj <- muj[which.max(muj$e0), ]
 
-hom <- e0_resumen_demotools[e0_resumen_demotools$sex == 1, ] %>% filter(period == "2015-2020")
+hom <- e0_resumen_demotools[e0_resumen_demotools$sex == 1, ] %>% filter(period == "2015-2019") # EGR: se corrige la etiqueta
 fila_hom <- hom[which.max(hom$e0), ]
 
 fila_muj
