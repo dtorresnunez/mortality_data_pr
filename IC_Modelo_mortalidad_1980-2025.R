@@ -2222,8 +2222,8 @@ e0_hc_IC %>%
   filter(region == "San Juan") %>%
   mutate(ancho_IC = e0_upper - e0_lower) %>%
   select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
+
 e0_sb2_IC %>% 
-  
   filter(region == "San Juan") %>%
   mutate(ancho_IC = e0_upper - e0_lower) %>%
   select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
