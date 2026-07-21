@@ -47,7 +47,7 @@ municipio <- muni_xwalk$region
 regions <- municipio
 
 #Periodo para años sencillos
-periods <- 1980:2025 #2024
+periods <- 1980:2024 #2024
 
 #"00-04"
 ages <- c(
@@ -62,9 +62,9 @@ ages <- c(
 #period_labels <- paste0(seq(2000, 2020, by = 5), "-", seq(2004, 2024, by = 5))
 
 #Periodos por años quinquenales 1980-2024
-period_breaks <- c(seq(1980, 2020, by = 5), 2025)
-period_labels <- paste0(seq(1980, 2020, by = 5), "-", c(seq(1984, 2020, by = 5), 2025)) #paste0(seq(1980, 2020, by = 5), "-", c(seq(1985, 2020, by = 5), 2025))
-print(period_labels) #confirmar que si está por quinquenio
+period_breaks <- c(seq(1980, 2020, by = 5), 2024)
+# period_labels <- paste0(seq(1980, 2020, by = 5), "-", c(seq(1984, 2020, by = 5), 2025)) #paste0(seq(1980, 2020, by = 5), "-", c(seq(1985, 2020, by = 5), 2025))
+# print(period_labels) #confirmar que si está por quinquenio
 
 #Estricto cinco años, el último quinquenio de 2000-2024
 period_labels <- paste0(seq(1980, 2020, by = 5), "-", seq(1984, 2024, by = 5))
@@ -91,7 +91,7 @@ poblacion <- read_csv(
 ) %>%
   filter(
     year >= 1980, #2000
-    year <= 2025, #2024
+    year <= 2024, #2024
     agegrp != 0,
     #sex !=0 #Esto es si solo queremos trabajar en grupo solo con dos sexos, no el total (0).
   ) %>%
@@ -146,7 +146,16 @@ ANIOS_CORREGIDOS <- 2015:2020
 
 defunciones_orig <- read_dta(
   file.path(data_dir, "defunciones_municipios_long_1979_2023.dta")
-) %>% rename(sex = sexo) %>%
+)
+defunciones_orig_dup <- read_dta(
+  file.path(data_dir, "defunciones_municipios_long_1979_2023.dta")
+) %>% 
+  filter(year == 2023)
+defunciones_orig_dup$year <- 2024
+defunciones_orig_final <- rbind(defunciones_orig, defunciones_orig_dup)
+
+defunciones_orig <- defunciones_orig_final %>%
+  rename(sex = sexo) %>%
   filter(
     year >= min(periods),
     year <= max(periods),
@@ -2000,7 +2009,7 @@ inla.hpdmarginal()
 names(fit_pc$marginals.hyperpar)
 
 #Ejemplo: HPD al 95% para la precisión del efecto de edad
-hpd_age <- inla.hpdmarginal(0.95, fit_pc$marginals.hyperpar$`Precision for age_idx`)
+hpd_age <- inla.hpdmarginal(0.00000001, fit_pc$marginals.hyperpar$`Precision for age_idx`)
 print(hpd_age)
 
 #Transformar el marginal de precisión a sigma usando inla.tmarginal()
@@ -2023,7 +2032,7 @@ hpd_comparacion <- lapply(names(modelos_previa), function(nombre) {
   marginal_sigma <- inla.tmarginal(function(x) 1/sqrt(x), 
                                    m$marginals.hyperpar$`Precision for age_idx`)
   hpd <- inla.hpdmarginal(0.95, marginal_sigma)
-  data.frame(prior = nombre, hpd_low = hpd[1], hpd_high = hpd[2])
+  data.frame(prior = nombre, hpd_low = hpd[1], median.est = ,hpd_high = hpd[2])
 }) %>% bind_rows()
 print(hpd_comparacion)
 
@@ -2034,7 +2043,8 @@ print(hpd_comparacion)
 ###Población completa
 population_plot <- function(df, per) {
   plot <- ggplot(df %>%
-                   filter(period == per), aes(x = fct_reorder(region, population), y = population)) +
+                   filter(period == per), aes(x = fct_reorder(region, population),
+                                              y = population)) +
     geom_col(fill = "firebrick") + 
     scale_y_continuous() +
     coord_flip() +
@@ -2048,7 +2058,7 @@ population_plot <- function(df, per) {
 }
 
 population_plot(df, "2020-2024")
-
+population_plot(df, "2015-2019")
 
 
 ###Tasa de mortalidad agrupada por períodos quinquenales
