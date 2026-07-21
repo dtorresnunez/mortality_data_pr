@@ -1929,7 +1929,7 @@ for (m in names(tablas_directo)) {
       sexnum <- if (s == "m") 1 else 2
       e0_resumen_directo <- rbind(
         e0_resumen_directo,
-        data.frame(period = p, region = m, sex = sexnum, e0_observada = tb$ex[1])
+        data.frame(period = p, region = m, sex = sexnum, e0_observado = tb$ex[1])
       )
     }
   }
@@ -2121,9 +2121,9 @@ plot(fit_pc)
 #e0_resumen_pc , e0_resumen_hc, e0_resumen_sb2, e0_resumen_ht, e0_resumen_ig
 construir_comparacion_e0 <- function(e0_modelado) {
   e0_resumen_directo %>%
-    rename(e0_observada = e0_observada) %>%
+    rename(e0_observado = e0_observado) %>%
     left_join(
-      e0_modelado %>% rename(e0_estimada = e0),
+      e0_modelado %>% rename(e0_estimado = e0),
       by = c("period", "region", "sex")
     )
 }
@@ -2138,14 +2138,14 @@ comparacion_ig  <- construir_comparacion_e0(e0_resumen_ig)
 ###Comparación e0 observado vs e0 estimado por municipio 
 e0_model_plot <- function(dat, per, col, llh) {
   plot <- ggplot(dat %>%
-                   filter(period == per), aes(x = fct_reorder(region, e0_observada), 
-                                              y = e0_estimada)) +
+                   filter(period == per), aes(x = fct_reorder(region, e0_observado), 
+                                              y = e0_estimado)) +
     geom_point(color = col, size = 1.8) +
-    geom_point(aes(y = e0_observada), shape = 1) +
+    geom_point(aes(y = e0_observado), shape = 1) +
     coord_flip() +
     facet_wrap(~ sex, labeller = as_labeller(c(`1` = "Hombres", `2` = "Mujeres"))) +
     theme_minimal() +
-    labs(title = paste0("e0 por municipio (estimada vs. observada), ", per, ", ", llh), 
+    labs(title = paste0("e0 por municipio (estimado vs. observado), ", per, ", ", llh), 
          y = "e0", x = "") +
     theme(axis.title.x = element_text(size = 6))
   return(plot)
@@ -2165,12 +2165,12 @@ e0_model_plot(comparacion_ig, "2020-2024", "firebrick", "Inverse Gamma")
 ###Comparación e0 observado vs e0 estimado por periodo para cada previa
 e0_municipio_plot <- function(dat, muni, llh) {
   plot <- ggplot(dat %>%
-                   filter(region == muni), aes(x = period, y = e0_estimada)) +
+                   filter(region == muni), aes(x = period, y = e0_estimado)) +
     geom_point(color = "red", size = 1.8) +
-    geom_point(aes(y = e0_observada), shape = 1) +
+    geom_point(aes(y = e0_observado), shape = 1) +
     facet_wrap(~ sex, labeller = as_labeller(c(`1` = "Hombres", `2` = "Mujeres"))) +
     theme_minimal() +
-    labs(title = paste0("e0 estimada vs. observada para ", muni, ", 1980-2025, ", llh), 
+    labs(title = paste0("e0 estimado vs. observado para ", muni, ", 1980-2025, ", llh), 
          y = "e0", x = "") +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
   return(plot)
@@ -2191,14 +2191,14 @@ e0_municipio_plot(comparacion_ig, "San Juan", "Inverse Gamma")
 e0_municipio_plot <- function(dat, muni, llh) {
   plot <- ggplot(dat %>% filter(region == muni), 
                  aes(x = period, 
-                     y = e0_estimada,
+                     y = e0_estimado,
                      ymin = e0_lower,
                      ymax = e0_upper)) +
     geom_pointrange(color = "purple", size = 0.4, linewidth = 0.6) +
-    geom_point(aes(y = e0_observada), shape = 1, color = "black", size = 2) +
+    geom_point(aes(y = e0_observado), shape = 1, color = "black", size = 2) +
     facet_wrap(~ sex, labeller = as_labeller(c(`1` = "Hombres", `2` = "Mujeres"))) +
     theme_minimal() +
-    labs(title = paste0("e0 estimada vs. observada para ", muni, ", 1980-2025, ", llh), 
+    labs(title = paste0("e0 observado vs estimado para ", muni, ", 1980-2025, ", llh), 
          y = "Esperanza de vida al nacer (e0)", x = "") +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
           plot.title = element_text(size = 11, face = "bold"))
@@ -2216,33 +2216,33 @@ e0_municipio_plot(e0_ig_IC,  "San Juan", "Inverse Gamma")
 e0_pc_IC %>% 
   filter(region == "San Juan") %>%
   mutate(ancho_IC = e0_upper - e0_lower) %>%
-  select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
+  select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
 
 e0_hc_IC %>% 
   filter(region == "San Juan") %>%
   mutate(ancho_IC = e0_upper - e0_lower) %>%
-  select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
+  select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
 
 e0_sb2_IC %>% 
   filter(region == "San Juan") %>%
   mutate(ancho_IC = e0_upper - e0_lower) %>%
-  select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
+  select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
 
 e0_ht_IC %>% 
   filter(region == "San Juan") %>%
   mutate(ancho_IC = e0_upper - e0_lower) %>%
-  select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
+  select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
 
 e0_ig_IC %>% 
   filter(region == "San Juan") %>%
   mutate(ancho_IC = e0_upper - e0_lower) %>%
-  select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
+  select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
 
 
 ###HOLD
 e0_dir_vs_sae_plot <- function(dat, per, llh) {
   plot <- ggplot(dat %>% filter(period == per), 
-                 aes(x = e0_observada, y = e0_estimada, color = factor(sex))) +
+                 aes(x = e0_observado, y = e0_estimado, color = factor(sex))) +
     geom_point(shape = 1) +
     geom_abline(slope = 1, intercept = 0, color = "red") +
     geom_smooth(method = "lm", se = FALSE, linewidth = 0.6) +
@@ -2250,7 +2250,7 @@ e0_dir_vs_sae_plot <- function(dat, per, llh) {
                        labels = c("Hombres", "Mujeres"), name = "Sexo") +
     theme_minimal() +
     labs(title = paste0("e0 observado vs estimado, ", per, ", ", llh),
-         x = "e0 directo", y = "e0 modelado")
+         x = "e0 observado", y = "e0 estimado")
   return(plot)
 }
 
@@ -2258,12 +2258,12 @@ e0_dir_vs_sae_plot(comparacion_pc, "2020-2024", "PC prior")
 
 
 ###HOLD
-###e0 estimada por periodo
+###e0 estimado por periodo
 e0_model_plot <- function(dat, per, col, llh) {
   plot <- ggplot(dat %>%
                    filter(period == per), 
-                 aes(x = fct_reorder(region, e0_estimada), 
-                     y = e0_estimada,
+                 aes(x = fct_reorder(region, e0_estimado), 
+                     y = e0_estimado,
                      ymin = e0_lower,
                      ymax = e0_upper)) +
     geom_pointrange(color = col, size = 0.4, linewidth = 0.6) +
@@ -2291,7 +2291,7 @@ comparacion_todas <- bind_rows(
 
 #Mujeres, 2020-2024
 ggplot(comparacion_todas %>% filter(period == "2020-2024", sex == 2),
-       aes(x = fct_reorder(region, e0_estimada), y = e0_estimada, 
+       aes(x = fct_reorder(region, e0_estimado), y = e0_estimado, 
            ymin = e0_lower, ymax = e0_upper, color = previa)) +
   geom_pointrange(position = position_dodge(width = 0.6), size = 0.2) +
   coord_flip() +
@@ -2301,7 +2301,7 @@ ggplot(comparacion_todas %>% filter(period == "2020-2024", sex == 2),
 
 #Hombres, 2020-2024
 ggplot(comparacion_todas %>% filter(period == "2020-2024", sex == 1),
-       aes(x = fct_reorder(region, e0_estimada), y = e0_estimada, 
+       aes(x = fct_reorder(region, e0_estimado), y = e0_estimado, 
            ymin = e0_lower, ymax = e0_upper, color = previa)) +
   geom_pointrange(position = position_dodge(width = 0.6), size = 0.2) +
   coord_flip() +
@@ -2333,12 +2333,12 @@ calcular_e0_inla <- function(modelo_inla, df, age_params, Age, nsamples = 1000) 
                           a0rule = "ak", axmethod = "pas", mod = FALSE)
         e0_obs_list[[length(e0_obs_list) + 1]] <- data.frame(
           region = reg, period = per, sex = ifelse(sx == "m", 1, 2),
-          e0_observada = tb$ex[1]
+          e0_observado = tb$ex[1]
         )
       }
     }
   }
-  e0_observada_df <- bind_rows(e0_obs_list)
+  e0_observado_df <- bind_rows(e0_obs_list)
   
   # Muestras posteriores del predictor
   samples <- inla.posterior.sample(nsamples, modelo_inla)
@@ -2381,22 +2381,22 @@ calcular_e0_inla <- function(modelo_inla, df, age_params, Age, nsamples = 1000) 
   e0_sim_df <- bind_rows(e0_sim_list)
   
   # mediana + IC 95%
-  e0_estimada_df <- e0_sim_df %>%
+  e0_estimado_df <- e0_sim_df %>%
     group_by(region, period, sex) %>%
     summarise(
-      e0_estimada = median(e0, na.rm = TRUE),
+      e0_estimado = median(e0, na.rm = TRUE),
       e0_lower    = quantile(e0, 0.025, na.rm = TRUE),
       e0_upper    = quantile(e0, 0.975, na.rm = TRUE),
       .groups = "drop"
     )
   
-  # e0 observada y estimada
-  e0_final <- left_join(e0_observada_df, e0_estimada_df, by = c("region", "period", "sex")) %>%
+  # e0 observado y estimado
+  e0_final <- left_join(e0_observado_df, e0_estimado_df, by = c("region", "period", "sex")) %>%
     arrange(region, period, sex) %>%
     mutate(est_eval = case_when(
-      between(e0_observada, e0_lower, e0_upper) ~ "Estimación adecuada",
-      e0_observada < e0_lower ~ "> e0 observada",
-      e0_observada > e0_upper ~ "< e0 observada"
+      between(e0_observado, e0_lower, e0_upper) ~ "Estimación adecuada",
+      e0_observado < e0_lower ~ "> e0 observado",
+      e0_observado > e0_upper ~ "< e0 observado"
     ))
   
   return(e0_final)
