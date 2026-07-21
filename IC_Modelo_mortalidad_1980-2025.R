@@ -2105,7 +2105,6 @@ mx_municipio(pred_pc, "San Juan")
 
 
 
-
 ###Previas para observar los efectos de cada modelo
 plot(fit_hc)
 
@@ -2136,7 +2135,7 @@ comparacion_ht  <- construir_comparacion_e0(e0_resumen_ht)
 comparacion_ig  <- construir_comparacion_e0(e0_resumen_ig)
 
 
-###Comparación e0 observado vs e0 estimado por municipio
+###Comparación e0 observado vs e0 estimado por municipio 
 e0_model_plot <- function(dat, per, col, llh) {
   plot <- ggplot(dat %>%
                    filter(period == per), aes(x = fct_reorder(region, e0_observada), 
@@ -2153,7 +2152,15 @@ e0_model_plot <- function(dat, per, col, llh) {
 }
 
 e0_model_plot(comparacion_pc, "2020-2024", "firebrick", "PC prior")
+e0_model_plot(comparacion_hc, "2020-2024", "firebrick", "Half-Cauchy")
+e0_model_plot(comparacion_sb2, "2020-2024", "firebrick", "Scale Beta2")
+e0_model_plot(comparacion_ht, "2020-2024", "firebrick", "Half-t")
+e0_model_plot(comparacion_ig, "2020-2024", "firebrick", "Inverse Gamma")
 
+
+#Comentario: Todas se comportan de la misma forma, exceptuando la PC prior,
+#quien presenta diferencia pero no tan significativa ante la comparación de las previas.
+#Mirar Culebra de PC y Half Cauchy (mínimo cambio)
 
 ###Comparación e0 observado vs e0 estimado por periodo
 e0_municipio_plot <- function(dat, muni, llh) {
