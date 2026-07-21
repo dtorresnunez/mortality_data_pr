@@ -565,6 +565,17 @@ fila_hom <- hom[which.max(hom$e0), ]
 fila_muj
 fila_hom
 
+
+muj <- e0_resumen_demotools[e0_resumen_demotools$sex == 2, ] %>% filter(period == "2010-2014") # EGR: se corrige la etiqueta
+fila_muj <- muj[which.max(muj$e0), ]
+
+hom <- e0_resumen_demotools[e0_resumen_demotools$sex == 1, ] %>% filter(period == "2010-2014") # EGR: se corrige la etiqueta
+fila_hom <- hom[which.max(hom$e0), ]
+
+fila_muj
+fila_hom
+
+
 head(tablas)
 tb
 
