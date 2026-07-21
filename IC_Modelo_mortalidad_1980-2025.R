@@ -2162,7 +2162,7 @@ e0_model_plot(comparacion_ig, "2020-2024", "firebrick", "Inverse Gamma")
 #quien presenta diferencia pero no tan significativa ante la comparación de las previas.
 #Mirar Culebra de PC y Half Cauchy (mínimo cambio)
 
-###Comparación e0 observado vs e0 estimado por periodo
+###Comparación e0 observado vs e0 estimado por periodo para cada previa
 e0_municipio_plot <- function(dat, muni, llh) {
   plot <- ggplot(dat %>%
                    filter(region == muni), aes(x = period, y = e0_estimada)) +
@@ -2177,6 +2177,66 @@ e0_municipio_plot <- function(dat, muni, llh) {
 }
 
 e0_municipio_plot(comparacion_pc, "San Juan", "PC prior")
+e0_municipio_plot(comparacion_hc, "San Juan", "Half-Cauchy")
+e0_municipio_plot(comparacion_sb2, "San Juan", "Scale Beta2")
+e0_municipio_plot(comparacion_ht, "San Juan", "Half-t")
+e0_municipio_plot(comparacion_ig, "San Juan", "Inverse Gamma")
+
+#Comentario:Se toma el promedio posterior de mx para calcular una sola tabla de vida por 
+#municipio, período y sexo
+#mx = fit$summary.fitted.values$mean
+#Por ello los e0 (previas) se van a comportar casi todas por igual
+
+###Comparación e0 observado vs e0 estimado por periodo para cada previa bajo IC
+e0_municipio_plot <- function(dat, muni, llh) {
+  plot <- ggplot(dat %>% filter(region == muni), 
+                 aes(x = period, 
+                     y = e0_estimada,
+                     ymin = e0_lower,
+                     ymax = e0_upper)) +
+    geom_pointrange(color = "purple", size = 0.4, linewidth = 0.6) +
+    geom_point(aes(y = e0_observada), shape = 1, color = "black", size = 2) +
+    facet_wrap(~ sex, labeller = as_labeller(c(`1` = "Hombres", `2` = "Mujeres"))) +
+    theme_minimal() +
+    labs(title = paste0("e0 estimada vs. observada para ", muni, ", 1980-2025, ", llh), 
+         y = "Esperanza de vida al nacer (e0)", x = "") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+          plot.title = element_text(size = 11, face = "bold"))
+  return(plot)
+}
+e0_municipio_plot(e0_pc_IC,  "San Juan", "PC prior")
+e0_municipio_plot(e0_hc_IC,  "San Juan", "Half-Cauchy")
+e0_municipio_plot(e0_sb2_IC, "San Juan", "Scale Beta2")
+e0_municipio_plot(e0_ht_IC,  "San Juan", "Half-t")
+e0_municipio_plot(e0_ig_IC,  "San Juan", "Inverse Gamma")
+#Comentario: Se toman las muestras posteriores para calcular una tabla de vida por cada muestra
+#Se puede añadir más muestra, de 10 a 100 para ver algun cambio mayor
+#Mostrar foto
+#Se pueden añadir los intervalos, pero son bien pequeños
+e0_pc_IC %>% 
+  filter(region == "San Juan") %>%
+  mutate(ancho_IC = e0_upper - e0_lower) %>%
+  select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
+
+e0_hc_IC %>% 
+  filter(region == "San Juan") %>%
+  mutate(ancho_IC = e0_upper - e0_lower) %>%
+  select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
+e0_sb2_IC %>% 
+  
+  filter(region == "San Juan") %>%
+  mutate(ancho_IC = e0_upper - e0_lower) %>%
+  select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
+
+e0_ht_IC %>% 
+  filter(region == "San Juan") %>%
+  mutate(ancho_IC = e0_upper - e0_lower) %>%
+  select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
+
+e0_ig_IC %>% 
+  filter(region == "San Juan") %>%
+  mutate(ancho_IC = e0_upper - e0_lower) %>%
+  select(period, sex, e0_estimada, e0_lower, e0_upper, ancho_IC)
 
 
 ###HOLD
