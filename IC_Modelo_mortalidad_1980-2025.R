@@ -2046,7 +2046,7 @@ hpd_comparacion <- lapply(names(modelos_previa), function(nombre) {
   marginal_sigma <- inla.tmarginal(function(x) 1/sqrt(x), 
                                    m$marginals.hyperpar$`Precision for age_idx`)
   hpd <- inla.hpdmarginal(0.95, marginal_sigma)
-  data.frame(prior = nombre, hpd_low = hpd[1], median.est = ,hpd_high = hpd[2])
+  data.frame(prior = nombre, hpd_low = hpd[1], hpd_high = hpd[2])
 }) %>% bind_rows()
 print(hpd_comparacion)
 
@@ -2086,19 +2086,20 @@ mx_period_plot <- function(data, muni) {
 }
 
 #Ejemplo: San Juan
-mx_period_plot(pred_pc, "San Juan")
+mx_period_plot(pred_sb2, "San Juan")
 #Ejemplo: Aibonito
-mx_period_plot(pred_pc, "Aibonito")
+mx_period_plot(pred_sb2, "Aibonito")
 
 
 # 2. Tasa de mortalidad por grupos quinquenales
 mx_municipio <- function(dat, muni) {
   plot <- ggplot(dat %>% filter(region == muni), 
                  aes(x = factor(agegroup), 
-                     y = mx * 1000, 
+                     y = mx, 
                      group = factor(period), 
                      color = factor(period))) +
     geom_line() + geom_point() + theme_bw() + 
+    scale_y_log10(limits = c(0.00001, 1)) +
     scale_x_discrete() +
     facet_wrap(~ sex, labeller = as_labeller(c(`m` = "Hombres", `f` = "Mujeres"))) +
     theme(
@@ -2108,15 +2109,15 @@ mx_municipio <- function(dat, muni) {
       legend.title = element_text(size = 13)) +
     scale_color_discrete("Período") +
     guides(color = guide_legend(ncol = 1)) + 
-    labs(x = "Grupo de edad", y = "mx (por 1,000)",
-         title = paste0("Tasa de mortalidad específica por edad (por 1,000), ", muni))
+    labs(x = "Grupo de edad", y = "scale log 10 mx",
+         title = paste0("Tasa de mortalidad específica por edad, ", muni))
   return(plot)
 }
 
 #Ejemplo: San Juan
-mx_municipio(pred_pc, "San Juan")
+mx_municipio(pred_sb2, "San Juan")
 #Ejemplo: Aibonito
-mx_municipio(pred_pc, "Aibonito")
+mx_municipio(pred_sb2, "Aibonito")
 
 # --------------------------------------------------------------------------
 # Cálculo de e0 con intervalos de credibilidad para los gráficos (Funciones)
@@ -2214,7 +2215,12 @@ calcular_e0_inla <- function(modelo_inla, df, age_params, Age, nsamples = 1000) 
 # Muestras 10,100 y 1000
 e0_pc_IC  <- calcular_e0_inla(fit_pc,  df, age_params, Age, nsamples = 10)
 e0_hc_IC  <- calcular_e0_inla(fit_hc,  df, age_params, Age, nsamples = 10)
-e0_sb2_IC <- calcular_e0_inla(fit_sb2, df, age_params, Age, nsamples = 10)
+system.time({
+  e0_sb2_IC_10 <- calcular_e0_inla(fit_sb2, df, age_params, Age, nsamples = 10)
+})
+system.time({
+e0_sb2_IC <- calcular_e0_inla(fit_sb2, df, age_params, Age, nsamples = 100)
+})
 e0_ht_IC  <- calcular_e0_inla(fit_ht,  df, age_params, Age, nsamples = 10)
 e0_ig_IC  <- calcular_e0_inla(fit_ig,  df, age_params, Age, nsamples = 10)
 
@@ -2235,11 +2241,12 @@ e0_model_plot <- function(dat, per, col, llh) {
     theme(axis.title.x = element_text(size = 6))
 }
 
-e0_model_plot(e0_pc_IC, "2020-2024", "purple", "PC prior")
-e0_model_plot(e0_hc_IC, "2020-2024", "purple", "Half-Cauchy")
-e0_model_plot(e0_sb2_IC, "2020-2024", "purple", "Scale-Beta2")
-e0_model_plot(e0_ht_IC, "2020-2024", "purple", "Half-t")
-e0_model_plot(e0_ig_IC, "2020-2024", "purple", "Inverse-Gamma")
+e0_model_plot(e0_pc_IC, "2020-2024", "purple", "PC prior (10 muestras)")
+e0_model_plot(e0_hc_IC, "2020-2024", "purple", "Half-Cauchy (10 muestras)")
+e0_model_plot(e0_sb2_IC_10, "2020-2024", "purple", "Scale-Beta2 (10 muestras)")
+e0_model_plot(e0_sb2_IC, "2020-2024", "purple", "Scale-Beta2 (100 muestras)")
+e0_model_plot(e0_ht_IC, "2020-2024", "purple", "Half-t (10 muestras)")
+e0_model_plot(e0_ig_IC, "2020-2024", "purple", "Inverse-Gamma (10 muestras)")
 
 
 # 4. Comparación del e0 observado vs e0 estimado con IC para cada previa por municipio (cambiando período)
@@ -2315,6 +2322,9 @@ SB2.prior_2_2_1 <- make_sb2_prior(p = 2, q = 2, b = 1)
 # Variante 2
 SB2.prior_1_1_5 <- make_sb2_prior(p = 1, q = 1, b = 5)
 
+# Variante 3
+SB2.prior_1_1_10 <- make_sb2_prior(p = 1, q = 1, b = 10)
+
 formula_sb2_2_2_1 <- deaths ~
   factor(sex) +
   f(age_idx, model = "rw1", constr = TRUE,
@@ -2358,10 +2368,34 @@ fit_sb2_1_1_5 <- inla(
   control.compute = list(config = TRUE, dic = TRUE, waic = TRUE)
 )
 
+formula_sb2_1_1_10 <- deaths ~
+  factor(sex) +
+  f(age_idx, model = "rw1", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior_1_1_10))) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior_1_1_10),
+                 phi  = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+  f(period_idx, model = "rw2", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior_1_1_10))) +
+  f(region_period_idx, model = "iid",
+    hyper = list(prec = list(prior = SB2.prior_1_1_10)))
 
-e0_sb2_2_2_1_IC <- calcular_e0_inla(fit_sb2_2_2_1, df, age_params, Age, nsamples = 10)
-e0_sb2_1_1_5_IC <- calcular_e0_inla(fit_sb2_1_1_5, df, age_params, Age, nsamples = 10)
+fit_sb2_1_1_10 <- inla(
+  formula_sb2_1_1_10,
+  family = "poisson",
+  data = df,
+  E = population,
+  control.predictor = list(compute = TRUE),
+  control.compute = list(config = TRUE, dic = TRUE, waic = TRUE)
+)
 
+
+e0_sb2_2_2_1_IC      <- calcular_e0_inla(fit_sb2_2_2_1, df, age_params, Age, nsamples = 10)
+e0_sb2_1_1_5_IC      <- calcular_e0_inla(fit_sb2_1_1_5, df, age_params, Age, nsamples = 10)
+e0_sb2_1_1_10_IC_100 <- calcular_e0_inla(fit_sb2_1_1_10, df, age_params, Age, nsamples = 100)
+system.time({
+e0_sb2_1_1_10_IC_10  <- calcular_e0_inla(fit_sb2_1_1_10, df, age_params, Age, nsamples = 10)
+})
 # Hombres, 2020-2024
 e0_forest_plot(e0_sb2_2_2_1_IC, "2020-2024", 1, "purple", "Scale-Beta2 (2,2,1)")
 e0_forest_plot(e0_sb2_1_1_5_IC, "2020-2024", 1, "purple", "Scale-Beta2 (1,1,5)")
@@ -2372,8 +2406,8 @@ e0_forest_plot(e0_sb2_1_1_5_IC, "2020-2024", 2, "purple", "Scale-Beta2 (1,1,5)")
 
 e0_model_plot(e0_sb2_2_2_1_IC, "2020-2024", "purple", "Scale-Beta2 (2,2,1)")
 e0_model_plot(e0_sb2_1_1_5_IC, "2020-2024", "purple", "Scale-Beta2 (1,1,5)")
-
-
+e0_model_plot(e0_sb2_1_1_10_IC_10, "2020-2024", "purple", "Scale-Beta2 (1,1,10)")
+e0_model_plot_muni(e0_sb2_1_1_10_IC_10, "2020-2024", "purple", "Scale-Beta2 (1,1,10)")
 
 #######################################################################################
 #######################################################################################
@@ -2403,30 +2437,25 @@ e0_model_plot(e0_sb2_1_1_5_IC, "2020-2024", "purple", "Scale-Beta2 (1,1,5)")
 #Mostrar foto
 
 #Se pueden añadir los intervalos, pero son bien pequeños:
-# e0_pc_IC %>% 
-#   filter(region == "San Juan") %>%
-#   mutate(ancho_IC = e0_upper - e0_lower) %>%
-#   select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
-# 
-# e0_hc_IC %>% 
-#   filter(region == "San Juan") %>%
-#   mutate(ancho_IC = e0_upper - e0_lower) %>%
-#   select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
-# 
-# e0_sb2_IC %>% 
-#   filter(region == "San Juan") %>%
-#   mutate(ancho_IC = e0_upper - e0_lower) %>%
-#   select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
-# 
-# e0_ht_IC %>% 
-#   filter(region == "San Juan") %>%
-#   mutate(ancho_IC = e0_upper - e0_lower) %>%
-#   select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
-# 
-# e0_ig_IC %>% 
-#   filter(region == "San Juan") %>%
-#   mutate(ancho_IC = e0_upper - e0_lower) %>%
-#   select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
+e0_pc_IC %>%
+  mutate(ancho_IC = e0_upper - e0_lower) %>%
+  select(period, region, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
+
+e0_hc_IC %>%
+  mutate(ancho_IC = e0_upper - e0_lower) %>%
+  select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
+
+e0_sb2_IC %>%
+  mutate(ancho_IC = e0_upper - e0_lower) %>%
+  select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
+
+e0_ht_IC %>%
+  mutate(ancho_IC = e0_upper - e0_lower) %>%
+  select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
+
+e0_ig_IC %>%
+  mutate(ancho_IC = e0_upper - e0_lower) %>%
+  select(period, sex, e0_estimado, e0_lower, e0_upper, ancho_IC)
 # 
 
 
@@ -2449,29 +2478,28 @@ e0_model_plot(e0_sb2_1_1_5_IC, "2020-2024", "purple", "Scale-Beta2 (1,1,5)")
 # 
 
 
-# ###Comparando todas las previas para sus correspondientes e0 estimados
-# construir_comparacion_e0 <- function(e0_modelado) {
-#   e0_resumen_directo %>%
-#     rename(e0_observado = e0_observado) %>%
-#     left_join(
-#       e0_modelado %>% rename(e0_estimado = e0),
-#       by = c("period", "region", "sex")
-#     )
-# }
-# 
-# comparacion_pc <- construir_comparacion_e0(e0_resumen_pc)
-# comparacion_hc  <- construir_comparacion_e0(e0_resumen_hc)
-# comparacion_sb2 <- construir_comparacion_e0(e0_resumen_sb2)
-# comparacion_ht  <- construir_comparacion_e0(e0_resumen_ht)
-# comparacion_ig  <- construir_comparacion_e0(e0_resumen_ig)
-# 
-# comparacion_todas <- bind_rows(
-#   comparacion_pc  %>% mutate(previa = "PC prior"),
-#   comparacion_hc  %>% mutate(previa = "Half-Cauchy"),
-#   comparacion_sb2 %>% mutate(previa = "Scale Beta2"),
-#   comparacion_ht  %>% mutate(previa = "Half-t"),
-#   comparacion_ig  %>% mutate(previa = "Inverse Gamma")
-# )
+###Comparando todas las previas para sus correspondientes e0 estimados
+construir_comparacion_e0 <- function(e0_modelado) {
+  e0_resumen_directo %>%
+    rename(e0_observado = e0_observado) %>%
+    left_join(
+      e0_modelado %>% rename(e0_estimado = e0_estimado),
+      by = c("period", "region", "sex")
+    )
+}
+
+comparacion_pc <- construir_comparacion_e0(e0_pc_IC)
+comparacion_sb2 <- construir_comparacion_e0(e0_sb2_IC)
+comparacion_ht  <- construir_comparacion_e0(e0_ht_IC)
+comparacion_ig  <- construir_comparacion_e0(e0_ig_IC)
+
+comparacion_todas <- bind_rows(
+  comparacion_pc  %>% mutate(previa = "PC prior"),
+  comparacion_hc  %>% mutate(previa = "Half-Cauchy"),
+  comparacion_sb2 %>% mutate(previa = "Scale Beta2"),
+  comparacion_ht  %>% mutate(previa = "Half-t"),
+  comparacion_ig  %>% mutate(previa = "Inverse Gamma")
+)
 # 
 # 
 # e0_model_plot <- function(data, per, col, llh) {
@@ -2495,25 +2523,25 @@ e0_model_plot(e0_sb2_1_1_5_IC, "2020-2024", "purple", "Scale-Beta2 (1,1,5)")
 # e0_model_plot(comparacion_ht, "2020-2024", "firebrick", "Half-t")
 # e0_model_plot(comparacion_ig, "2020-2024", "firebrick", "Inverse Gamma")
 # 
-# #Mujeres, 2020-2024
-# ggplot(comparacion_todas %>% filter(period == "2020-2024", sex == 2),
-#        aes(x = fct_reorder(region, e0_estimado), y = e0_estimado, 
-#            ymin = e0_lower, ymax = e0_upper, color = previa)) +
-#   geom_pointrange(position = position_dodge(width = 0.6), size = 0.2) +
-#   coord_flip() +
-#   theme_minimal() +
-#   labs(title = "e0 municipal (mujeres, 2020-2024) por previa",
-#        y = "e0", x = "")
-# 
-# #Hombres, 2020-2024
-# ggplot(comparacion_todas %>% filter(period == "2020-2024", sex == 1),
-#        aes(x = fct_reorder(region, e0_estimado), y = e0_estimado, 
-#            ymin = e0_lower, ymax = e0_upper, color = previa)) +
-#   geom_pointrange(position = position_dodge(width = 0.6), size = 0.2) +
-#   coord_flip() +
-#   theme_minimal() +
-#   labs(title = "e0 municipal (hombres, 2020-2024) por previa",
-#        y = "e0", x = "")
+#Mujeres, 2020-2024
+ggplot(comparacion_todas %>% filter(period == "2020-2024", sex == 2),
+       aes(x = fct_reorder(region, e0_estimado), y = e0_estimado,
+           ymin = e0_estimado, ymax = e0_estimado, color = previa)) +#color = previa)) + #
+  geom_pointrange(position = position_dodge(width = 0.6), size = 0.2) +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "e0 municipal (mujeres, 2020-2024) por previa",
+       y = "e0", x = "")
+
+#Hombres, 2020-2024
+ggplot(comparacion_todas %>% filter(period == "2020-2024", sex == 1),
+       aes(x = fct_reorder(region, e0_estimado), y = e0_estimado,
+           ymin = e0_lower, ymax = e0_upper, color = previa)) +
+  geom_pointrange(position = position_dodge(width = 0.6), size = 0.2) +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "e0 municipal (hombres, 2020-2024) por previa",
+       y = "e0", x = "")
 
 ########################################################################################
 ########################################################################################
