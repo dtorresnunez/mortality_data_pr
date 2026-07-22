@@ -2053,7 +2053,18 @@ print(hpd_comparacion)
 # -------------
 # 14. Gráficos
 # -------------
-#Comentario: voy a enumerarlas para referirnos a ellas con mayor rapidez
+# Previas para observar los efectos de cada modelo
+plot(fit_hc)
+
+plot(fit_sb2)
+
+plot(fit_ht)
+
+plot(fit_ig)
+
+plot(fit_pc)
+
+# Comentario: voy a enumerarlas para referirnos a ellas con mayor rapidez
 
 # 1. Tasa de mortalidad por sexo y períodos quinquenales
 mx_period_plot <- function(data, muni) {
@@ -2106,17 +2117,6 @@ mx_municipio <- function(dat, muni) {
 mx_municipio(pred_pc, "San Juan")
 #Ejemplo: Aibonito
 mx_municipio(pred_pc, "Aibonito")
-
-###Previas para observar los efectos de cada modelo
-plot(fit_hc)
-
-plot(fit_sb2)
-
-plot(fit_ht)
-
-plot(fit_ig)
-
-plot(fit_pc)
 
 # --------------------------------------------------------------------------
 # Cálculo de e0 con intervalos de credibilidad para los gráficos (Funciones)
@@ -2219,7 +2219,6 @@ e0_ht_IC  <- calcular_e0_inla(fit_ht,  df, age_params, Age, nsamples = 10)
 e0_ig_IC  <- calcular_e0_inla(fit_ig,  df, age_params, Age, nsamples = 10)
 
 
-
 # 3. Comparación del e0 observado vs e0 estimado para cada previa por IC
 e0_model_plot <- function(dat, per, col, llh) {
   ggplot(dat %>% filter(period == per), 
@@ -2304,6 +2303,75 @@ e0_forest_plot(e0_hc_IC, "2020-2024", 2, "purple", "Half-Cauchy")
 e0_forest_plot(e0_sb2_IC, "2020-2024", 2, "purple", "Scale-Beta2")
 e0_forest_plot(e0_ht_IC, "2020-2024", 2, "purple", "Half-t")
 e0_forest_plot(e0_ig_IC, "2020-2024", 2, "purple", "Inverse-Gamma")
+
+#######################################################################################
+#######################################################################################
+#######################################################################################
+
+
+# Variante 1
+SB2.prior_2_2_1 <- make_sb2_prior(p = 2, q = 2, b = 1)
+
+# Variante 2
+SB2.prior_1_1_5 <- make_sb2_prior(p = 1, q = 1, b = 5)
+
+formula_sb2_2_2_1 <- deaths ~
+  factor(sex) +
+  f(age_idx, model = "rw1", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior_2_2_1))) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior_2_2_1),
+                 phi  = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+  f(period_idx, model = "rw2", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior_2_2_1))) +
+  f(region_period_idx, model = "iid",
+    hyper = list(prec = list(prior = SB2.prior_2_2_1)))
+
+fit_sb2_2_2_1 <- inla(
+  formula_sb2_2_2_1,
+  family = "poisson",
+  data = df,
+  E = population,
+  control.predictor = list(compute = TRUE),
+  control.compute = list(config = TRUE, dic = TRUE, waic = TRUE)
+)
+
+
+formula_sb2_1_1_5 <- deaths ~
+  factor(sex) +
+  f(age_idx, model = "rw1", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior_1_1_5))) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior_1_1_5),
+                 phi  = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+  f(period_idx, model = "rw2", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior_1_1_5))) +
+  f(region_period_idx, model = "iid",
+    hyper = list(prec = list(prior = SB2.prior_1_1_5)))
+
+fit_sb2_1_1_5 <- inla(
+  formula_sb2_1_1_5,
+  family = "poisson",
+  data = df,
+  E = population,
+  control.predictor = list(compute = TRUE),
+  control.compute = list(config = TRUE, dic = TRUE, waic = TRUE)
+)
+
+
+e0_sb2_2_2_1_IC <- calcular_e0_inla(fit_sb2_2_2_1, df, age_params, Age, nsamples = 10)
+e0_sb2_1_1_5_IC <- calcular_e0_inla(fit_sb2_1_1_5, df, age_params, Age, nsamples = 10)
+
+# Hombres, 2020-2024
+e0_forest_plot(e0_sb2_2_2_1_IC, "2020-2024", 1, "purple", "Scale-Beta2 (2,2,1)")
+e0_forest_plot(e0_sb2_1_1_5_IC, "2020-2024", 1, "purple", "Scale-Beta2 (1,1,5)")
+
+# Mujeres, 2020-2024
+e0_forest_plot(e0_sb2_2_2_1_IC, "2020-2024", 2, "purple", "Scale-Beta2 (2,2,1)")
+e0_forest_plot(e0_sb2_1_1_5_IC, "2020-2024", 2, "purple", "Scale-Beta2 (1,1,5)")
+
+e0_model_plot(e0_sb2_2_2_1_IC, "2020-2024", "purple", "Scale-Beta2 (2,2,1)")
+e0_model_plot(e0_sb2_1_1_5_IC, "2020-2024", "purple", "Scale-Beta2 (1,1,5)")
 
 
 
