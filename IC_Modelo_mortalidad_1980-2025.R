@@ -1901,12 +1901,28 @@ print(sensitivity_analysis_summary)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 #################################################################################
 #################################################################################
-#e0 observado (directo,crudo, no se suavizan las tasas)
+
+# ------------------------------------------------------
+# e0 observad0 (directo,crudo, no se suavizan las tasas mx)
+# ------------------------------------------------------
 pred_directo <- df %>%
   mutate(
-    mx = pmax(deaths / population, 1e-6)   # <- mx crudo, no suavizado
+    mx = pmax(deaths / population, 1e-6)   # mx crudo
   ) %>%
   left_join(age_params, by = "agegroup")
 
@@ -1946,8 +1962,6 @@ for (m in names(tablas_directo)) {
   }
 }
 e0_resumen_directo
-#################################################################################
-#################################################################################
 
 # --------------------------------
 # 13. Sampling from the posterior
@@ -2026,6 +2040,18 @@ hpd_comparacion <- lapply(names(modelos_previa), function(nombre) {
   data.frame(prior = nombre, hpd_low = hpd[1], hpd_high = hpd[2])
 }) %>% bind_rows()
 print(hpd_comparacion)
+
+
+
+
+
+
+
+
+
+
+
+
 
 # -----------------------
 # 14. Gráficos
