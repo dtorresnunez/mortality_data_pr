@@ -1,0 +1,52 @@
+---
+title: 'Estimación para áreas pequeñas'
+author: "Grupo de mortalidad"
+date: "2026-22-07"
+output:
+  pdf_document:
+    keep_tex: true
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    geometry: margin=1in
+---
+
+# Paquetes a emplearse
+```{r}
+library(INLA)
+library(SUMMER)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(tidycensus)
+library(haven)
+library(sf)
+library(this.path)
+library(DemoTools)
+library(demogR)
+library(patchwork) 
+library(MortalityEstimate)
+library(MortCast) 
+library(MortalityLaws) 
+library(epitools)
+library(PHEindicatormethods)
+library(demography)
+library(forecast)
+library(readxl)
+```
+
+Se fija una semilla para que el código sea reproducible
+```{r}
+set.seed(123)
+```
+
+```{r}
+script_dir <- this.path::this.dir()
+data_dir <- file.path(script_dir, "data")
+shp_dir <- file.path(data_dir, "municipios_shp")
+```
+
+
+# Referencias
+
+
