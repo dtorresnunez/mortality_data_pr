@@ -7,7 +7,7 @@
 #  1. Análisis de sensitividad optimizada.
 #  2. Tuning para TODAS las etiquetas.
 #  3. Región senatorial.
-#  4. Correr 100 o más muestras (escalar las meustras).
+#  4. Correr 100 o más muestras (escalar las muestras).
 #  5. Poner en la misma escala a los e0 y sus intervalos.
 #  6. Cómo llegar de Poisson a Binomial Negativa.
 #  7. Segmentar la cobertura (Estimación adecuada upper y lower).
