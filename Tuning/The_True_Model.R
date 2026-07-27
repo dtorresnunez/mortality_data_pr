@@ -360,31 +360,6 @@ df_mujeres <- df %>% filter(sex == 2)
 familias   <- names(INLA::inla.models()$likelihood)
 modelos    <- names(INLA::inla.models()$latent)
 
-# Definición de parámetros para INLA
-tabla_df   <- "hombres"    # opciones: "ambos", "hombres", "mujeres"
-familia    <- "poisson"  # cambiar por "nbinomial"
-model_age  <- "rw2"      #rw1 = mujeres #rw2 = hombres
-par_p_age  <- 1
-par_q_age  <- 1
-par_b_age  <- 1
-model_reg  <- "bym2"
-par_p_reg  <- 1
-par_q_reg  <- 1
-par_b_reg  <- 1
-model_per  <- "rw2"
-par_p_per  <- 1
-par_q_per  <- 1
-par_b_per  <- 1
-model_s_t  <- "iid" #HOLD - bym2
-par_p_s_t  <- 1
-par_q_s_t  <- 1
-par_b_s_t  <- 1
-model_cel  <- "iid" #HOLD - bym2
-par_p_cel  <- 1
-par_q_cel  <- 1
-par_b_cel  <- 1
-nsamples   <- 100 #100
-
 # Modelo completo
 modelo_completo <- function(
                      tabla_df   = "hombres",
