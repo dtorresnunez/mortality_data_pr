@@ -555,6 +555,7 @@ resultado_hombres <- modelo_completo(
   par_b_cel  = 1,
   nsamples   = 1
 )
+
 ################################################################################
 #e0_para cada sexo por separado:
 
