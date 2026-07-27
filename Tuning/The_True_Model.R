@@ -511,20 +511,10 @@ tabla_summary <- tibble::tibble(
   resumen = capture.output(summary(fit_sb2))
 )
 
-# Crear una carpeta para esta ejecución
-carpeta_ejecucion <- file.path(
-  resultados_modelos,
-  fecha_hora
-)
-
-dir.create(
-  carpeta_ejecucion,
-  recursive = TRUE,
-  showWarnings = FALSE
-)
+fecha_hora <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
 
 readr::write_csv(tabla_summary,
-                 file.path(carpeta_ejecucion, 
+                 file.path(carpeta_resultados, 
                            paste0(fecha_hora, "-",
                                   nombre_modelo, "_summary.csv")))
 
@@ -534,7 +524,7 @@ readr::write_csv(tabla_summary,
 
 
 archivo_pdf <- file.path(
-  carpeta_ejecucion,
+  carpeta_resultados,
   paste0(
     fecha_hora, "-",
     nombre_modelo,
@@ -560,7 +550,7 @@ grDevices::dev.off()
 
 # Salvar la tabla de cobertura
 readr::write_csv(as.data.frame(tabla),
-                 file.path(carpeta_ejecucion, 
+                 file.path(carpeta_resultados, 
                            paste0(fecha_hora, "-",
                                   nombre_modelo, "_cobertura.csv")))
 }
