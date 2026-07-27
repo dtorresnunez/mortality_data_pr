@@ -353,7 +353,7 @@ e0_model_plot        <- function(dat, per, col, llh) {
 #                 E = population,
 #                 control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
 
-# Lectura de parámetros iniciales
+# Definición de parámetros iniciales
 df_ambos   <- df
 df_hombres <- df %>% filter(sex == 1)
 df_mujeres <- df %>% filter(sex == 2)
