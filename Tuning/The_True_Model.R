@@ -4,28 +4,26 @@
 # 2026_07_24
 
 # Tareas:
-# 1. Poner en la misma escala los valores de e0 observado,
-#    e0 estimado y sus intervalos de credibilidad.
-# 2. Segmentar la cobertura en:
+# Eugenio. Salvar los gráficos para todos los períodos y los resúmenes de INLA.
+# Eugenio. Crear un Tuning_1000
+# 
+# Nathalie. Segmentar la cobertura en:
 #    - Estimación adecuada.
 #    - Por debajo del intervalo: e0 observado < e0_lower.
 #    - Por encima del intervalo: e0 observado > e0_upper.
-# 3. Realizar el tuning de las previas para TODAS las etiquetas:
-#    age, region, period, region_period y cell.
-# 4. Incorporar previas diferentes por sexo:
-#    - Hombres: p = q = 0.5.
-#    - Mujeres: p = q = 1.
-# 5. Escalar el número de muestras posteriores:
+# Nathalie y David. Escalar el número de muestras posteriores:
 #    100, 500, 1000 o más muestras.
-# 6. Extender el modelo de Poisson a Binomial Negativa
+# Nathalie. Extender el modelo de Poisson a Binomial Negativa
 #    y comparar DIC, WAIC y cobertura.
-# 7. Repetir el análisis utilizando regiones senatoriales.
-# 8. Optimizar el análisis de sensibilidad.
+# David. Repetir el análisis utilizando regiones senatoriales.
+#    - Hablar con el Dr. Pericchi.
+# HOLD. Optimizar el análisis de sensibilidad.
 
 # Paquetes
 library(INLA)
 library(SUMMER)
 library(tidyverse)
+library(ggh4x)
 library(dplyr)
 library(tidyr)
 library(tidycensus)
@@ -44,6 +42,7 @@ library(demography)
 library(forecast)
 library(readxl)
 library(readr)
+library(parallel)
 
 script_dir         <- this.path::this.dir()
 data_dir           <- file.path(script_dir, "data")
@@ -189,7 +188,8 @@ calcular_e0_inla     <- function(modelo_inla, df, age_params, Age, nsamples = 10
 }
 
 # Ejecutar el modelo INLA optimizado. Funciona perfecto para Windows (ajustar mc.cores)
-calcular_e0_inla_opt <- function(modelo_inla, df, age_params, Age, nsamples = 1000, mc.cores = 19, ...){
+num.cores <- detectCores(logical = T)
+calcular_e0_inla_opt <- function(modelo_inla, df, age_params, Age, nsamples = 1000, mc.cores = num.cores - 1, ...){
   
   # --- preparación única ----------------------------------------------------
   datos_idx <- df %>%
@@ -301,7 +301,7 @@ calcular_e0_inla_opt <- function(modelo_inla, df, age_params, Age, nsamples = 10
 # Graficar el e0 observado, estimado y los IC
 e0_model_plot        <- function(dat, per, col, llh) {
   d <- dat %>% filter(period == per) %>%
-    mutate(region2 = fct_reorder(paste(region, sex, sep = "___"), e0_estimado))   # 1
+    mutate(region2 = fct_reorder(paste(region, sex, sep = "___"), e0_observado))   # 1
   ggplot(d,
          aes(x = region2,                                                          # 2
              y = e0_estimado, ymin = e0_lower, ymax = e0_upper)) +
@@ -311,6 +311,18 @@ e0_model_plot        <- function(dat, per, col, llh) {
     scale_x_discrete(labels = function(x) sub("___.*$", "", x)) +                  # 3
     facet_wrap(sex ~ est_eval, scales = "free",
                labeller = labeller(sex = c(`1` = "Hombres", `2` = "Mujeres"))) +
+    ggh4x::facetted_pos_scales(
+      y = list(
+        sex == "1" ~ scale_y_continuous(
+          limits = c(65, 85),
+          breaks = seq(65, 85, by = 1)
+        ),
+        sex == "2" ~ scale_y_continuous(
+          limits = c(75, 95),
+          breaks = seq(75, 95, by = 1)
+        )
+      )
+    ) + 
     theme_minimal() +
     labs(title = paste0("e0 por municipio (estimada vs. observada), ", per, ", ", llh),
          y = "e0", x = "") +
@@ -347,26 +359,26 @@ familia   <- "poisson"
 #familia   <- "nbinomial"
 modelos   <- names(INLA::inla.models()$latent)
 model_age <- "rw1" #rw1 = mujeres #rw2 = hombres
-par_p_age <- 0.5
-par_q_age <- 0.5
+par_p_age <- 1
+par_q_age <- 1
 par_b_age <- 1
 model_reg <- "bym2"
-par_p_reg <- 0.5
-par_q_reg <- 0.5
+par_p_reg <- 1
+par_q_reg <- 1
 par_b_reg <- 1
 model_per <- "rw2"
-par_p_per <- 0.5
-par_q_per <- 0.5
+par_p_per <- 1
+par_q_per <- 1
 par_b_per <- 1
 model_s_t <- "iid" #HOLD - bym2
-par_p_s_t <- 0.5
-par_q_s_t <- 0.5
+par_p_s_t <- 1
+par_q_s_t <- 1
 par_b_s_t <- 1
 model_cel <- "iid" #HOLD - bym2
-par_p_cel <- 0.5
-par_q_cel <- 0.5
+par_p_cel <- 1
+par_q_cel <- 1
 par_b_cel <- 1
-nsamples  <- 1 #100
+nsamples  <- 100 #100
 
 # Etiqueta usada para nombrar los archivos generados
 nombre_modelo <- paste(
@@ -489,9 +501,9 @@ fit_mujeres <- inla(formula_m,
                     control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
 
 # Calcular e0 por separado y unir resultados
-e0_hombres <- calcular_e0_inla_opt(fit_hombres, df_hombres, age_params, Age, nsamples = 100)
+e0_hombres <- calcular_e0_inla_opt(fit_hombres, df_hombres, age_params, Age, nsamples = 10)
 e0_hombres
-e0_mujeres <- calcular_e0_inla_opt(fit_mujeres, df_mujeres, age_params, Age, nsamples = 100)
+e0_mujeres <- calcular_e0_inla_opt(fit_mujeres, df_mujeres, age_params, Age, nsamples = 10)
 e0_mujeres
 e0_sb2_por_sexo_IC <- bind_rows(e0_hombres, e0_mujeres)
 e0_sb2_por_sexo_IC
