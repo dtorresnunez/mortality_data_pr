@@ -2212,11 +2212,11 @@ calcular_e0_inla <- function(modelo_inla, df, age_params, Age, nsamples = 1000) 
 }
 
 # Muestras 10,100 y 1000
-e0_pc_IC  <- calcular_e0_inla(fit_pc,  df, age_params, Age, nsamples = 10)
-e0_hc_IC  <- calcular_e0_inla(fit_hc,  df, age_params, Age, nsamples = 10)
-e0_sb2_IC <- calcular_e0_inla(fit_sb2, df, age_params, Age, nsamples = 10)
-e0_ht_IC  <- calcular_e0_inla(fit_ht,  df, age_params, Age, nsamples = 10)
-e0_ig_IC  <- calcular_e0_inla(fit_ig,  df, age_params, Age, nsamples = 10)
+e0_pc_IC.10  <- calcular_e0_inla(fit_pc,  df, age_params, Age, nsamples = 10)
+e0_hc_IC.10  <- calcular_e0_inla(fit_hc,  df, age_params, Age, nsamples = 10)
+e0_sb2_IC.10 <- calcular_e0_inla(fit_sb2, df, age_params, Age, nsamples = 10)
+e0_ht_IC.10  <- calcular_e0_inla(fit_ht,  df, age_params, Age, nsamples = 10)
+e0_ig_IC.10  <- calcular_e0_inla(fit_ig,  df, age_params, Age, nsamples = 10)
 
 
 # 3. Comparación del e0 observado vs e0 estimado para cada previa por IC

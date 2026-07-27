@@ -46,6 +46,8 @@ $$\ln(\text{Jacobiano}) = \ln(\tau) = x$$
 Por lo tanto, la expresión analítica final provista a `INLA` mediante la opción `"expression:"` debe retornar la suma de `log_dens + log_jacobian`.
 
 
+
+
 ## Parte 1: Verificación Unificada de las Implementaciones
 Para confirmar la validez analítica del código, evaluamos dos configuraciones alternativas empleando un **mismo conjunto de datos de juguete** compuesto exclusivamente por valores faltantes (`NA`). Esto fuerza a `INLA` a resolver la distribución marginal posterior del hiperparámetro basándose únicamente en la densidad a priori pura, sin la interferencia o actualización de datos empíricos.
 
