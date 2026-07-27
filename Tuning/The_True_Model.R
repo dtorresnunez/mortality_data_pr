@@ -386,30 +386,31 @@ par_b_cel  = 1
 nsamples   = 1
 
 # Modelo completo
-modelo_completo <- function(
-                     tabla_df   = "hombres",
-                     familia    = "poisson",
-                     model_age  = "rw2",
-                     par_p_age  = 1,
-                     par_q_age  = 1,
-                     par_b_age  = 1,
-                     model_reg  = "bym2",
-                     par_p_reg  = 1,
-                     par_q_reg  = 1,
-                     par_b_reg  = 1,
-                     model_per  = "rw2",
-                     par_p_per  = 1,
-                     par_q_per  = 1,
-                     par_b_per  = 1,
-                     model_s_t  = "iid",
-                     par_p_s_t  = 1,
-                     par_q_s_t  = 1,
-                     par_b_s_t  = 1,
-                     model_cel  = "iid",
-                     par_p_cel  = 1,
-                     par_q_cel  = 1,
-                     par_b_cel  = 1,
-                     nsamples   = 1){
+# modelo_completo <- function(
+#                      tabla_df   = "hombres",
+#                      familia    = "poisson",
+#                      model_age  = "rw2",
+#                      par_p_age  = 1,
+#                      par_q_age  = 1,
+#                      par_b_age  = 1,
+#                      model_reg  = "bym2",
+#                      par_p_reg  = 1,
+#                      par_q_reg  = 1,
+#                      par_b_reg  = 1,
+#                      model_per  = "rw2",
+#                      par_p_per  = 1,
+#                      par_q_per  = 1,
+#                      par_b_per  = 1,
+#                      model_s_t  = "iid",
+#                      par_p_s_t  = 1,
+#                      par_q_s_t  = 1,
+#                      par_b_s_t  = 1,
+#                      model_cel  = "iid",
+#                      par_p_cel  = 1,
+#                      par_q_cel  = 1,
+#                      par_b_cel  = 1,
+#                      nsamples   = 1)
+# {
 # Etiqueta usada para nombrar los archivos generados
 nombre_modelo <- paste(
   "gru", tabla_df,
@@ -553,7 +554,7 @@ readr::write_csv(as.data.frame(tabla),
                  file.path(carpeta_resultados, 
                            paste0(fecha_hora, "-",
                                   nombre_modelo, "_cobertura.csv")))
-}
+#}
 
 resultado_hombres <- modelo_completo(
   tabla_df   = "hombres",
