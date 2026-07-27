@@ -47,7 +47,7 @@ library(readr)
 
 script_dir         <- this.path::this.dir()
 data_dir           <- file.path(script_dir, "data")
-carpeta_resultados <- "resultados_modelos"
+carpeta_resultados <- "Tuning/resultados_modelos"
 
 # Cargar la base de datos de población y muerte
 df         <- read_csv(file.path(data_dir, "data_frame_population_deaths.csv"),
@@ -344,28 +344,29 @@ e0_model_plot        <- function(dat, per, col, llh) {
 # Definición de parámetros para INLA
 familias  <- names(INLA::inla.models()$likelihood)
 familia   <- "poisson"
+#familia   <- "nbinomial"
 modelos   <- names(INLA::inla.models()$latent)
-model_age <- "rw1"
-par_p_age <- 1
-par_q_age <- 1
+model_age <- "rw1" #rw1 = mujeres #rw2 = hombres
+par_p_age <- 0.5
+par_q_age <- 0.5
 par_b_age <- 1
 model_reg <- "bym2"
-par_p_reg <- 1
-par_q_reg <- 1
+par_p_reg <- 0.5
+par_q_reg <- 0.5
 par_b_reg <- 1
 model_per <- "rw2"
-par_p_per <- 1
-par_q_per <- 1
+par_p_per <- 0.5
+par_q_per <- 0.5
 par_b_per <- 1
-model_s_t <- "iid"
-par_p_s_t <- 1
-par_q_s_t <- 1
+model_s_t <- "iid" #HOLD - bym2
+par_p_s_t <- 0.5
+par_q_s_t <- 0.5
 par_b_s_t <- 1
-model_cel <- "iid"
-par_p_cel <- 1
-par_q_cel <- 1
+model_cel <- "iid" #HOLD - bym2
+par_p_cel <- 0.5
+par_q_cel <- 0.5
 par_b_cel <- 1
-nsamples  <- 100
+nsamples  <- 1 #100
 
 # Etiqueta usada para nombrar los archivos generados
 nombre_modelo <- paste(
@@ -392,7 +393,6 @@ formula_sb2 <- deaths ~
     hyper = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)) +
   f(cell_idx, model = model_cel,
     hyper = SB2.prior(par_p_cel, par_b_cel, par_b_cel))
-
 # Ejecutar la fórmula para INLA
 fit_sb2 <- inla(formula_sb2,
                 family = familia,
@@ -427,7 +427,7 @@ ggplot2::ggsave(
                         paste0(format(Sys.time(), "%Y-%m-%d-%I-%M-%S"),"-",
                                nombre_modelo, "_", periodo,"_e0.pdf")),
   plot      = grafica_e0,
-  device    = grDevices::cairo_pdf,
+  #device    = grDevices::cairo_pdf,
   width     = 8,
   height    = 12,
   units     = "in",
@@ -440,3 +440,69 @@ readr::write_csv(as.data.frame(tabla),
                  file.path(carpeta_resultados, 
                            paste0(format(Sys.time(),"%Y-%m-%d-%I-%M-%S"), "-",
                                   nombre_modelo, "_cobertura.csv")))
+
+
+################################################################################
+#e0_para cada sexo por separado:
+
+df_hombres <- df %>% filter(sex == 1)
+df_mujeres <- df %>% filter(sex == 2)
+
+# Hombres
+formula_h <- deaths ~
+  f(age_idx, model = "rw1", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)),
+                 phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+  f(period_idx, model = "rw2", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
+  f(region_period_idx, model = "iid",
+    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
+  f(cell_idx, model = "iid",
+    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1))))
+
+fit_hombres <- inla(formula_h, 
+                    family = familia, 
+                    data = df_hombres, 
+                    E = population,
+                    control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
+
+# Mujeres
+formula_m <- deaths ~
+  f(age_idx, model = "rw1", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)),
+                 phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+  f(period_idx, model = "rw2", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
+  f(region_period_idx, model = "iid",
+    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
+  f(cell_idx, model = "iid",
+    hyper = list(prec = list(prior = SB2.prior(1, 1, 1))))
+
+fit_mujeres <- inla(formula_m,
+                    family = familia, 
+                    data = df_mujeres,
+                    E = population,
+                    control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
+
+# Calcular e0 por separado y unir resultados
+e0_hombres <- calcular_e0_inla_opt(fit_hombres, df_hombres, age_params, Age, nsamples = 100)
+e0_hombres
+e0_mujeres <- calcular_e0_inla_opt(fit_mujeres, df_mujeres, age_params, Age, nsamples = 100)
+e0_mujeres
+e0_sb2_por_sexo_IC <- bind_rows(e0_hombres, e0_mujeres)
+e0_sb2_por_sexo_IC
+
+
+e0_model_plot(e0_sb2_por_sexo_IC, "2020-2024", "purple", 
+              "SB2 por sexo: Hombres SB2(0.5,0.5,1), Mujeres SB2(1,1,1)")
+
+data.frame(
+  modelo = c("Hombres SB2(0.5,0.5,1)", "Mujeres SB2(1,1,1)"),
+  DIC    = c(fit_hombres$dic$dic, fit_mujeres$dic$dic),
+  WAIC   = c(fit_hombres$waic$waic, fit_mujeres$waic$waic),
+  p_eff  = c(fit_hombres$dic$p.eff, fit_mujeres$dic$p.eff)
+)

@@ -46,6 +46,1337 @@ data_dir <- file.path(script_dir, "data")
 shp_dir <- file.path(data_dir, "municipios_shp")
 ```
 
+Se nombran los municipios dados los fips de como se encuentran en el censo
+```{r}
+muni_xwalk <- fips_codes %>%
+  filter(state == "PR") %>%
+  transmute(
+    fips3 = county_code,
+    region = str_remove(county, " Municipio")
+  )
+
+municipio <- muni_xwalk$region
+regions <- municipio
+
+```
+
+Edades por quinquenios, exceptuando la mortalidad infantil
+```{r}
+ages <- c(
+  "0", "01-04","05-09", "10-14", "15-19", "20-24",
+  "25-29", "30-34", "35-39", "40-44", "45-49",
+  "50-54", "55-59", "60-64", "65-69", "70-74",
+  "75-79", "80-84", "85+"
+)
+```
+
+Períodos sencillos
+```{r}
+periods <- 1980:2024 
+```
+
+Períodos quinquenales
+```{r}
+period_breaks <- c(seq(1980, 2020, by = 5), 2024)
+period_labels <- paste0(seq(1980, 2020, by = 5), "-", seq(1984, 2024, by = 5))
+
+period_quinquenal <- function(year) {
+  as.character(
+    cut(
+      year,
+      breaks = period_breaks,
+      labels = period_labels,
+      right = FALSE,          
+      include.lowest = TRUE
+    )
+  )
+}
+```
+
+Lectura de los datos sobre la población del 1980 al 2024
+```{r}
+
+poblacion <- read_csv(
+  file.path(data_dir, "municipios_population_1980_2025_redondeo.csv"),
+  col_types = cols(
+    fips3 = col_character(),
+    .default = col_guess()
+  )
+) %>%
+  filter(
+    year >= 1980, #2000
+    year <= 2024, #2024
+    agegrp != 0,
+    #sex !=0 #Esto es si solo queremos trabajar en grupo solo con dos sexos, no el total (0).
+  ) %>%
+  mutate(
+    fips3 = str_pad(fips3, width = 3, side = "left", pad = "0"),
+    period = period_quinquenal(year),
+    agegroup = case_when(
+      agegrp == 1 ~ "0",
+      agegrp == 2  ~ "01-04",
+      agegrp == 3  ~ "05-09",
+      agegrp == 4  ~ "10-14",
+      agegrp == 5  ~ "15-19",
+      agegrp == 6  ~ "20-24",
+      agegrp == 7  ~ "25-29",
+      agegrp == 8  ~ "30-34",
+      agegrp == 9  ~ "35-39",
+      agegrp == 10  ~ "40-44",
+      agegrp == 11 ~ "45-49",
+      agegrp == 12 ~ "50-54",
+      agegrp == 13 ~ "55-59",
+      agegrp == 14 ~ "60-64",
+      agegrp == 15 ~ "65-69",
+      agegrp == 16 ~ "70-74",
+      agegrp == 17 ~ "75-79",
+      agegrp == 18 ~ "80-84",
+      agegrp %in% c(19, 20) ~ "85+" #OJO: 5-9 vs 05-09  #HOLD >= vs %in%
+    ) 
+  ) %>%
+  group_by(fips3, agegroup, sex, period) %>% #year por period, para años sencillos
+  summarise(
+    #population = sum(population, na.rm = TRUE), #años sencillos
+    population_mean = mean(population, na.rm = TRUE),
+    n_years = n(), 
+    .groups = "drop"
+  ) %>%
+  mutate(
+    population = population_mean * n_years          
+  ) %>%
+  transmute(
+    fips3,
+    #period = as.integer(year), #años sencillos
+    period,
+    agegroup,
+    sex, 
+    population = as.numeric(population)
+  ) %>%
+  left_join(muni_xwalk, by = "fips3")
+
+```
+
+Corrección de los años 2015 al 2023
+```{r}
+ANIOS_CORREGIDOS <- 2015:2020
+
+defunciones_orig <- read_dta(
+  file.path(data_dir, "defunciones_municipios_long_1979_2023.dta")
+)
+defunciones_orig_dup <- read_dta(
+  file.path(data_dir, "defunciones_municipios_long_1979_2023.dta")
+) %>% 
+  filter(year == 2023)
+defunciones_orig_dup$year <- 2024
+defunciones_orig_final <- rbind(defunciones_orig, defunciones_orig_dup)
+
+defunciones_orig <- defunciones_orig_final %>%
+  rename(sex = sexo) %>%
+  filter(
+    year >= min(periods),
+    year <= max(periods),
+    !(year %in% ANIOS_CORREGIDOS), # EGR: excluimos los anios a corregir
+    !is.na(fips3),
+    fips3 != "",
+    !is.na(edad),
+  ) %>%
+  mutate(
+    period = period_quinquenal(year),
+    #period = as.integer(year), #años sencillos
+    agegroup = as.character(
+      cut(
+        edad,
+        breaks = c(0, 1, seq(5, 85, by = 5), Inf), #HOLD c(seq(0, 85, by = 5), Inf),
+        labels = ages,
+        right = FALSE
+      )
+    )
+  ) %>%
+  mutate(sex = as.integer(sex)) %>% # EGR: por si sexo con la nueva base no se lee como numerico
+  count(fips3, period, agegroup, sex, name = "deaths")
+
+# EGR: ahora hay que poner las defunciones de la base nueva en el formato que ya se tiene
+# EGR: se deben corregir FIPS3
+pedazo <- read_excel(
+  file.path(data_dir, "2026-07-16_corregidas_defunciones_wide_2015-2023.xlsx"),
+  sheet = "Sheet1"
+)
+pedazo <- unique(data.frame(
+  muni       = pedazo$muni,
+  fips3_xlsx = str_pad(as.character(pedazo$fips3), 3, "left", "0")
+))
+pedazo <- pedazo[!is.na(pedazo$muni), ]
+pedazo$fips3_ok <- muni_xwalk$fips3[
+  match(tolower(chartr("áéíóúüñ", "aeiouun", pedazo$muni)),
+        tolower(chartr("áéíóúüñ", "aeiouun", muni_xwalk$region)))
+]
+sum(is.na(pedazo$fips3_ok))
+pedazo[pedazo$fips3_xlsx != pedazo$fips3_ok & !is.na(pedazo$fips3_ok), ]
+# EGR: correcion hecha sobre FIPS3
+defunciones_corr <- read_excel(
+  file.path(data_dir, "2026-07-16_corregidas_defunciones_wide_2015-2023.xlsx"),
+  sheet = "Sheet1"
+) %>%
+  filter(year %in% ANIOS_CORREGIDOS) %>%
+  select(-edad_NA) %>%                        # muertes sin edad: se descartan
+  rename(sex = sexo) %>%
+  pivot_longer(
+    cols = starts_with("edad_"),
+    names_to = "edad",
+    names_prefix = "edad_",
+    values_to = "deaths"
+  ) %>%
+  mutate(
+    edad  = as.numeric(edad),
+    sex   = as.integer(sex),
+    fips3 = str_pad(as.character(fips3), 3, "left", "0"),   # el xlsx trae 1, 3, 5...
+    fips3 = recode(fips3,
+                   "011" = "013", "013" = "015", "015" = "011",
+                   "055" = "057", "057" = "059", "059" = "061",
+                   "061" = "063", "063" = "055") # EGR: se re-mapea FIPS3 para los pedazos indentificados en pedazo[pedazo$fips3_xlsx != pedazo$fips3_ok & !is.na(pedazo$fips3_ok), ] 
+      ) %>%
+  filter(
+    !is.na(fips3),
+    fips3 != "",
+    !is.na(sex),
+    deaths > 0
+  ) %>%
+  mutate(
+    period = period_quinquenal(year),
+    agegroup = as.character(
+      cut(
+        edad,
+        breaks = c(0, 1, seq(5, 85, by = 5), Inf),
+        labels = ages,
+        right = FALSE
+      )
+    )
+  ) %>%
+  group_by(fips3, period, agegroup, sex) %>%
+  summarise(deaths = sum(deaths), .groups = "drop")
+
+# EGR: juntamos las defunciones de la base vieja con la nueva solo
+# EGR: solo en los anios 2015 - 2020. De 2021 a 2023 nos quedamos con la
+# EGR: base inicial de defunciones
+
+defunciones <- bind_rows(defunciones_orig, defunciones_corr) %>%
+  group_by(fips3, period, agegroup, sex) %>%
+  summarise(deaths = sum(deaths), .groups = "drop")
+
+# EGR: comprobemos las muertes de edad 0 por periodo
+crudo_orig <- read_dta(
+  file.path(data_dir, "defunciones_municipios_long_1979_2023.dta")
+) %>%
+  filter(
+    year >= 2010, year <= 2023,
+    !(year %in% ANIOS_CORREGIDOS),
+    !is.na(edad)
+  ) %>%
+  mutate(year = as.integer(year), edad = as.numeric(edad)) %>%
+  count(year, edad, name = "deaths")
+
+crudo_corr <- read_excel(
+  file.path(data_dir, "2026-07-16_corregidas_defunciones_wide_2015-2023.xlsx"),
+  sheet = "Sheet1"
+) %>%
+  filter(year %in% ANIOS_CORREGIDOS) %>%
+  select(-edad_NA) %>%
+  pivot_longer(
+    cols = starts_with("edad_"),
+    names_to = "edad", names_prefix = "edad_", values_to = "deaths"
+  ) %>%
+  mutate(edad = as.numeric(edad)) %>%
+  filter(deaths > 0) %>%
+  count(year, edad, wt = deaths, name = "deaths")
+
+tabla_cruda <- bind_rows(crudo_orig, crudo_corr) %>%
+  filter(edad <= 12) %>%
+  group_by(year, edad) %>%
+  summarise(deaths = sum(deaths), .groups = "drop") %>%
+  pivot_wider(names_from = edad, values_from = deaths, values_fill = 0) %>%
+  arrange(year)
+
+print(tabla_cruda, n = Inf)
+```
+
+
+Estructura de datos a partir de los datos de la población
+```{r}
+df <- poblacion %>%
+  left_join(defunciones, by = c("fips3", "period", "agegroup","sex")) %>%
+  mutate(
+    deaths = replace_na(deaths, 0L)
+  ) %>%
+  select(region, period, agegroup, sex, population, deaths)
+
+```
+
+
+# Construcción de la tabla de vida
+
+```{r}
+age_params <- tibble(
+  agegroup = ages,
+  n_interval = c(1, 4, rep(5, 16), NA), #HOLD n_interval = c(rep(5, length(ages) - 1), NA),
+  ax = c(
+    0.15, 1.5, 2.5, 2.5, 2.5, #00-04 para 2.0, pero DemoTools 0: 0.15 y 1-4: 1.5
+    2.5, 2.5, 2.5, 2.5, 2.5,
+    2.5, 2.5, 2.5, 2.5, 2.5,
+    2.5, 2.5, 2.5, NA
+  )
+)
+```
+
+Confirmación de los 19 grupos de edad
+```{r}
+age_params$n_interval
+```
+
+# Matriz de adyacencia
+
+```{r}
+shapefile_sf <- st_read(
+  file.path(shp_dir, "g03_legales_municipios_edicion_octubre2015.shp")
+)
+
+Amat <- getAmat(
+  geo = shapefile_sf$geometry,
+  names = municipio
+)
+```
+
+## Mapa de gráfico de vecindad
+
+```{r}
+shapefile_sf <- shapefile_sf %>%
+  mutate(.id_muni = row_number())
+
+shapefile_largest <- shapefile_sf %>%
+  st_cast("POLYGON", warn = FALSE) %>%
+  mutate(.area = as.numeric(st_area(geometry))) %>%
+  group_by(.id_muni) %>%
+  slice_max(.area, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  arrange(.id_muni)
+
+cent <- suppressWarnings(
+  st_point_on_surface(st_geometry(shapefile_largest))
+)
+
+cXY <- st_coordinates(cent)
+
+ij <- which(
+  Amat != 0 & upper.tri(Amat),
+  arr.ind = TRUE
+)
+
+edges_sf <- st_sf(
+  geometry = st_sfc(
+    lapply(
+      seq_len(nrow(ij)),
+      function(k) {
+        st_linestring(cXY[c(ij[k, 1], ij[k, 2]), ])
+      }
+    ),
+    crs = st_crs(shapefile_sf)
+  )
+)
+
+nodes_sf <- st_sf(
+  region = municipio,
+  geometry = cent
+)
+
+map_vecindad <- ggplot() +
+  geom_sf(
+    data = shapefile_sf,
+    fill = "grey95",
+    color = "grey75",
+    linewidth = 0.2
+  ) +
+  geom_sf(
+    data = edges_sf,
+    color = "#2c7fb8",
+    linewidth = 0.4,
+    alpha = 0.85
+  ) +
+  geom_sf(
+    data = nodes_sf,
+    color = "#d7301f",
+    size = 1.3
+  ) +
+  labs(
+    title = "Grafo de vecindad de los municipios de Puerto Rico",
+    subtitle = paste0(
+      nrow(Amat), " municipios y ",
+      nrow(ij), " conexiones en la matriz de adyacencia"
+    )
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank()
+  )
+
+print(map_vecindad)
+```
+
+
+# Indices para INLA
+
+Períodos para años sencillos
+```{r}
+df <- df %>% filter(sex %in% c(1, 2)) %>%
+  mutate(
+    region_idx = as.integer(factor(region, levels = regions)),
+    period_idx = as.integer(factor(period, levels = periods)),
+    age_idx = as.integer(factor(agegroup, levels = ages)),
+    region_period_idx = as.integer(factor(paste(region, period)))
+  )
+
+g <- INLA::inla.read.graph(Amat)
+```
+
+
+Período para años quinquenales
+```{r}
+df <- df %>% filter(sex %in% c(1, 2)) %>%
+  mutate(
+    region_idx = as.integer(factor(region, levels = regions)),
+    period_idx = as.integer(factor(period, levels = period_labels)),
+    age_idx = as.integer(factor(agegroup, levels = ages)),
+    region_period_idx = as.integer(factor(paste(region, period)))
+  )
+
+g <- INLA::inla.read.graph(Amat)
+```
+
+# e0 observado
+
+```{r}
+pred_directo <- df %>%
+  mutate(
+    mx = pmax(deaths / population, 1e-6)   # mx crudo
+  ) %>%
+  left_join(age_params, by = "agegroup")
+
+pred_directo$sex <- ifelse(pred_directo$sex == 1, "m", "f")
+municipios <- sort(unique(pred_directo$region))
+periodos   <- sort(unique(pred_directo$period))
+sexos      <- c("m", "f")
+Age <- c(0, 1, seq(5, 85, by = 5))
+
+tablas_directo <- list()
+for (muni in municipios) {
+  for (per in periodos) {
+    for (sx in sexos) {
+      pred_sub <- pred_directo %>%
+        filter(region == muni, period == per, sex == sx)
+      nMx    <- pred_sub$mx
+      AgeInt <- inferAgeIntAbr(vec = nMx)
+      tablas_directo[[muni]][[per]][[sx]] <- lt_abridged(
+        nMx = nMx, AgeInt = AgeInt, Age = Age, 
+        a0rule = "ak", axmethod = "pas", Sex = sx, mod = FALSE
+      )
+    }
+  }
+}
+
+e0_resumen_directo <- data.frame()
+for (m in names(tablas_directo)) {
+  for (p in names(tablas_directo[[m]])) {
+    for (s in c("m", "f")) {
+      tb <- tablas_directo[[m]][[p]][[s]]
+      sexnum <- if (s == "m") 1 else 2
+      e0_resumen_directo <- rbind(
+        e0_resumen_directo,
+        data.frame(period = p, region = m, sex = sexnum, e0_observado = tb$ex[1])
+      )
+    }
+  }
+}
+e0_resumen_directo
+
+```
+
+# Extraer tasas suavizadas (pred para e0 estimado)
+```{r}
+pred <- df %>%
+  mutate(
+    mx = pmax(fit$summary.fitted.values$mean, 1e-6)
+  ) %>%
+  left_join(age_params, by = "agegroup")
+
+```
+
+Otra forma para extraer las tasas suavizadas
+```{r}
+fit$summary.fitted.values$mean 
+fit$summary.fitted.values$`0.025quant`
+fit$summary.fitted.values$`0.975quant` 
+```
+
+# Cálculo de e0 con intervalos de credibilidad
+```{r}
+calcular_e0_inla <- function(modelo_inla, df, age_params, Age, nsamples = 1000) {
+  datos_directo <- df %>%
+    mutate(mx = pmax(deaths / population, 1e-6),
+           sex_chr = ifelse(sex == 1, "m", "f")) %>%
+    left_join(age_params, by = "agegroup")
+  
+  e0_obs_list <- list()
+  for (reg in unique(datos_directo$region)) {
+    for (per in unique(datos_directo$period)) {
+      for (sx in c("m", "f")) {
+        sub <- datos_directo %>%
+          filter(region == reg, period == per, sex_chr == sx) %>%
+          arrange(age_idx)
+        nMx <- sub$mx
+        if (length(nMx) <= 5) next
+        AgeInt <- inferAgeIntAbr(vec = nMx)
+        tb <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, Sex = sx,
+                          a0rule = "ak", axmethod = "pas", mod = FALSE)
+        e0_obs_list[[length(e0_obs_list) + 1]] <- data.frame(
+          region = reg, period = per, sex = ifelse(sx == "m", 1, 2),
+          e0_observado = tb$ex[1]
+        )
+      }
+    }
+  }
+  e0_observado_df <- bind_rows(e0_obs_list)
+  
+  # Muestras posteriores del predictor
+  samples <- inla.posterior.sample(nsamples, modelo_inla)
+  
+  log_lambda_matrix_all <- inla.posterior.sample.eval(
+    function(...) { Predictor }, 
+    samples
+  )
+  log_lambda_matrix <- log_lambda_matrix_all[1:nrow(df), , drop = FALSE]
+  mx_matrix <- pmax(exp(log_lambda_matrix), 1e-6)
+  
+  # e0 estimado por muestra 
+  datos_idx <- df %>%
+    mutate(sex_chr = ifelse(sex == 1, "m", "f")) %>%
+    left_join(age_params, by = "agegroup")
+  combinaciones <- datos_idx %>% distinct(region, period, sex_chr)
+  e0_sim_list <- vector("list", nsamples * nrow(combinaciones))
+  contador <- 0
+  for (s in seq_len(nsamples)) {
+    datos_idx$mx <- mx_matrix[, s]
+    for (i in seq_len(nrow(combinaciones))) {
+      reg <- combinaciones$region[i]
+      per <- combinaciones$period[i]
+      sx  <- combinaciones$sex_chr[i]
+      sub <- datos_idx %>%
+        filter(region == reg, period == per, sex_chr == sx) %>%
+        arrange(age_idx)
+      nMx <- sub$mx
+      if (length(nMx) <= 5) next
+      AgeInt <- inferAgeIntAbr(vec = nMx)
+      tb <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, Sex = sx,
+                        a0rule = "ak", axmethod = "pas", mod = FALSE)
+      contador <- contador + 1
+      e0_sim_list[[contador]] <- data.frame(
+        sim = s, region = reg, period = per,
+        sex = ifelse(sx == "m", 1, 2), e0 = tb$ex[1]
+      )
+    }
+    if (s %% 100 == 0) message("Muestra ", s, " de ", nsamples)
+  }
+  e0_sim_df <- bind_rows(e0_sim_list)
+  
+  # mediana + IC 95%
+  e0_estimado_df <- e0_sim_df %>%
+    group_by(region, period, sex) %>%
+    summarise(
+      e0_estimado = median(e0, na.rm = TRUE),
+      e0_lower    = quantile(e0, 0.025, na.rm = TRUE),
+      e0_upper    = quantile(e0, 0.975, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # e0 observado y estimado
+  e0_final <- left_join(e0_observado_df, e0_estimado_df, by = c("region", "period", "sex")) %>%
+    arrange(region, period, sex) %>%
+    mutate(est_eval = case_when(
+      between(e0_observado, e0_lower, e0_upper) ~ "Estimación adecuada",
+      e0_observado < e0_lower ~ "> e0 observado",
+      e0_observado > e0_upper ~ "< e0 observado"
+    ))
+  
+  return(e0_final)
+}
+```
+
+## Expresiones de las previas con respectivos parámetros por defecto
+
+Half Cauchy
+Scale-Beta2
+Half t-Student
+Inverted Gammma
+PC prior
+
+### Expresión de la previa Half Cauchy
+
+```{r}
+HC.prior  = "expression:
+  sigma = exp(-theta/2);
+  gamma = 1;
+  log_dens = log(2) - log(pi) - log(gamma);
+  log_dens = log_dens - log(1 + (sigma / gamma)^2);
+  log_dens = log_dens - log(2) - theta / 2;
+  return(log_dens);
+"
+cat(HC.prior)
+
+```
+
+
+### Expresión de la previa Scale-Beta2
+
+```{r}
+SB2.prior = "expression:
+  p = 1;
+  q = 1;
+  b = 1;
+  sigma2 = exp(-theta);
+ sigma2 = exp(-theta);
+  log_dens = lgamma(p+q) - lgamma(p) - lgamma(q) - log(b);
+  log_dens = log_dens + (p-1) * log(sigma2/b);
+  log_dens = log_dens - (p+q) * log(1 + sigma2/b);
+  log_dens = log_dens - theta;
+  return(log_dens);
+"
+cat(SB2.prior)
+```
+
+
+### Expresión de la previa Half t-Student
+
+```{r}
+HT.prior = "expression:
+  sigma = exp(-theta/2);
+  nu = 3;
+  log_dens = 0 - 0.5 * log(nu * pi) - (-0.1207822);
+  log_dens = log_dens - 0.5 * (nu + 1) * log(1 + sigma * sigma);
+  log_dens = log_dens - log(2) - theta / 2;
+  return(log_dens);
+"
+cat(HT.prior)
+```
+
+
+### Expresión de la previa Inverse Gamma
+
+```{r}
+IG.prior = "expression:
+  a = 1;
+  b = 0.00005;
+  log_dens = a * log(b) - lgamma(a) + a * theta - b * exp(theta);
+  return(log_dens);
+"
+cat(IG.prior)
+```
+
+# Modelos INLA para la familia Poisson: previas por defecto
+
+### Modelo INLA: familia Poisson (previa por defecto = loggamma)
+
+```{r}
+formula_inla <- deaths ~
+  factor(sex) +
+  f(age_idx, model = "rw1", constr = TRUE) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE) +
+  f(period_idx, model = "rw2", constr = TRUE) +
+  f(region_period_idx, model = "iid")
+
+fit <- inla(
+  formula = formula_inla,
+  family = "poisson",
+  data = df,
+  E = population,
+  control.predictor = list(compute = TRUE),
+  control.compute = list(dic = TRUE, waic = TRUE)
+)
+
+```
+
+
+### Modelo INLA: Half Cauchy (familia = poisson)
+
+```{r}
+formula_hc <- deaths ~
+  factor(sex) +
+  f(age_idx,    model = "rw1",  constr = TRUE,
+    hyper = list(prec = list(prior = HC.prior))) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE,
+    hyper = list(
+      prec = list(prior = HC.prior),
+      phi  = list(prior = "logitbeta", param = c(0.5, 0.5))))+  # Beta(0.5, 0.5) en escala logarítmica
+  f(period_idx, model = "rw2",  constr = TRUE,
+    hyper = list(prec = list(prior = HC.prior))) +
+  f(region_period_idx, model = "iid",
+    hyper = list(prec = list(prior = HC.prior)))
+
+fit_hc <- inla(formula_hc,
+               family  = "poisson",
+               data    = df,
+               E       = population,
+               control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
+
+```
+
+
+#### e0 para la previa Half Cauchy (familia = poisson)
+
+```{r}
+pred_hc <- df %>%
+  mutate(
+    mx = pmax(fit_hc$summary.fitted.values$mean, 1e-6)
+  ) %>%
+  left_join(age_params, by = "agegroup")
+
+pred_hc$sex <- ifelse(pred_hc$sex == 1, "m", "f")
+municipios <- sort(unique(pred_hc$region))
+periodos   <- sort(unique(pred_hc$period))
+sexos      <- c("m", "f")
+Age <- c(0, 1, seq(5, 85, by = 5)) #Cambio 
+tablas <- list()
+for (muni in municipios) {
+  for (per in periodos) {
+    for (sx in sexos) {
+      pred_sub_hc <- pred_hc %>%
+        filter(region == muni, period == per, sex == sx)
+      nMx    <- pred_sub_hc$mx
+      AgeInt <- inferAgeIntAbr(vec = nMx)
+      tablas[[muni]][[per]][[sx]] <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, a0rule = "ak", axmethod = "pas", Sex = sx, mod = FALSE)
+    }
+  }
+}
+
+e0_resumen_hc <- data.frame()
+
+for (m in names(tablas)) {
+  for (p in names(tablas[[m]])) {
+    for (s in c("m", "f")) {
+      
+      tb <- tablas[[m]][[p]][[s]]
+      
+      sexnum <- if (s == "m") 1 else 2
+      
+      e0_resumen_hc <- rbind(
+        e0_resumen_hc,
+        data.frame(period = p, region = m, sex = sexnum, e0 = tb$ex[1])
+      )
+    }
+  }
+}
+```
+
+
+### Modelo INLA: Scale-Beta2 (family = poisson)
+
+```{r}
+formula_sb2 <- deaths ~
+  factor(sex) +
+  f(age_idx,    model = "rw1",  constr = TRUE,
+    hyper = SB2.prior) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE,
+    hyper = SB2.prior) +
+  f(period_idx, model = "rw2",  constr = TRUE,
+    hyper = SB2.prior) +
+  f(region_period_idx, model = "iid",
+    hyper = SB2.prior)
+
+fit_sb2 <- inla(formula_sb2,
+                family  = "poisson",
+                data    = df,
+                E       = population,
+                control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
+```
+
+#### e0 para la previa Scale-Beta2 (family = poisson)
+
+```{r}
+pred_sb2 <- df %>%
+  mutate(
+    mx = pmax(fit_sb2$summary.fitted.values$mean, 1e-6)
+  ) %>%
+  left_join(age_params, by = "agegroup")
+
+pred_sb2$sex <- ifelse(pred_sb2$sex == 1, "m", "f")
+municipios <- sort(unique(pred_sb2$region))
+periodos   <- sort(unique(pred_sb2$period))
+sexos      <- c("m", "f")
+Age <- c(0, 1, seq(5, 85, by = 5)) #80 A 85
+tablas <- list()
+for (muni in municipios) {
+  for (per in periodos) {
+    for (sx in sexos) {
+      pred_sub_sb2 <- pred_sb2 %>%
+        filter(region == muni, period == per, sex == sx)
+      nMx    <- pred_sub_sb2$mx
+      AgeInt <- inferAgeIntAbr(vec = nMx)
+      tablas[[muni]][[per]][[sx]] <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, a0rule = "ak", axmethod = "pas", Sex = sx, mod = FALSE)
+    }
+  }
+}
+
+e0_resumen_sb2 <- data.frame()
+
+for (m in names(tablas)) {
+  for (p in names(tablas[[m]])) {
+    for (s in c("m", "f")) {
+      
+      tb <- tablas[[m]][[p]][[s]]
+      
+      sexnum <- if (s == "m") 1 else 2
+      
+      e0_resumen_sb2 <- rbind(
+        e0_resumen_sb2,
+        data.frame(period = p, region = m, sex = sexnum, e0 = tb$ex[1])
+      )
+    }
+  }
+}
+```
+
+
+
+### Modelo INLA: Half t-Student (family = poisson)
+
+```{r}
+formula_ht <- deaths ~
+  factor(sex) +
+  f(age_idx,    model = "rw1",  constr = TRUE,
+    hyper = list(prec = list(prior = HT.prior))) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE,
+    hyper = list(
+      prec = list(prior = HT.prior)))+  
+  f(period_idx, model = "rw2",  constr = TRUE,
+    hyper = list(prec = list(prior = HT.prior))) +
+  f(region_period_idx, model = "iid",
+    hyper = list(prec = list(prior = HT.prior)))
+
+fit_ht <- inla(formula_ht,
+               family  = "poisson",
+               data    = df,
+               E       = population,
+               control.compute = list(config = TRUE, return.marginals.predictor=TRUE, cpo = TRUE, dic = TRUE, waic = TRUE)) 
+```
+
+#### e0 para la previa Half T
+
+```{r}
+pred_ht <- df %>%
+  mutate(
+    mx = pmax(fit_ht$summary.fitted.values$mean, 1e-6)
+  ) %>%
+  left_join(age_params, by = "agegroup")
+
+pred_ht$sex <- ifelse(pred_ht$sex == 1, "m", "f")
+municipios <- sort(unique(pred_ht$region))
+periodos   <- sort(unique(pred_ht$period))
+sexos      <- c("m", "f")
+Age <- c(0, 1, seq(5, 85, by = 5)) #80 a 85 
+tablas <- list()
+for (muni in municipios) {
+  for (per in periodos) {
+    for (sx in sexos) {
+      pred_sub_ht <- pred_ht %>%
+        filter(region == muni, period == per, sex == sx)
+      nMx    <- pred_sub_ht$mx
+      AgeInt <- inferAgeIntAbr(vec = nMx)
+      tablas[[muni]][[per]][[sx]] <- lt_abridged(nMx = nMx, AgeInt = AgeInt, a0rule = "ak", axmethod = "pas", Age = Age, Sex = sx, mod = FALSE)
+    }
+  }
+}
+
+e0_resumen_ht <- data.frame()
+
+for (m in names(tablas)) {
+  for (p in names(tablas[[m]])) {
+    for (s in c("m", "f")) {
+      
+      tb <- tablas[[m]][[p]][[s]]
+      
+      sexnum <- if (s == "m") 1 else 2
+      
+      e0_resumen_ht <- rbind(
+        e0_resumen_ht,
+        data.frame(period = p, region = m, sex = sexnum, e0 = tb$ex[1])
+      )
+    }
+  }
+}
+```
+
+
+
+### Modelo INLA: Inverse Gamma (family = poisson)
+
+```{r}
+formula_ig <- deaths ~
+  factor(sex) +
+  f(age_idx,    model = "rw1",  constr = TRUE,
+    hyper = list(prec = list(prior = IG.prior))) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE,
+    hyper = list(prec = list(prior = IG.prior))) +
+  f(period_idx, model = "rw2",  constr = TRUE,
+    hyper = list(prec = list(prior = IG.prior))) +
+  f(region_period_idx, model = "iid",
+    hyper = list(prec = list(prior = IG.prior)))
+
+fit_ig <- inla(formula_ig,
+               family  = "poisson",
+               data    = df,
+               E       = population,
+               control.compute = list(config = TRUE, cpo = TRUE, dic = TRUE, waic = TRUE))
+```
+
+
+#### e0 para la previa Inverse Gamma
+
+```{r}
+# e0 para la previa Inverse Gamma
+pred_ig <- df %>%
+  mutate(
+    mx = pmax(fit_ig$summary.fitted.values$mean, 1e-6)
+  ) %>%
+  left_join(age_params, by = "agegroup")
+
+pred_ig$sex <- ifelse(pred_ig$sex == 1, "m", "f")
+municipios <- sort(unique(pred_ig$region))
+periodos   <- sort(unique(pred_ig$period))
+sexos      <- c("m", "f")
+Age <- c(0, 1, seq(5, 85, by = 5)) #80 a 85
+tablas <- list()
+for (muni in municipios) {
+  for (per in periodos) {
+    for (sx in sexos) {
+      pred_sub_ig <- pred_ig %>%
+        filter(region == muni, period == per, sex == sx)
+      nMx    <- pred_sub_ig$mx
+      AgeInt <- inferAgeIntAbr(vec = nMx)
+      tablas[[muni]][[per]][[sx]] <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, a0rule = "ak", axmethod = "pas", Sex = sx, mod = FALSE)
+    }
+  }
+}
+
+e0_resumen_ig <- data.frame()
+
+for (m in names(tablas)) {
+  for (p in names(tablas[[m]])) {
+    for (s in c("m", "f")) {
+      
+      tb <- tablas[[m]][[p]][[s]]
+      
+      sexnum <- if (s == "m") 1 else 2
+      
+      e0_resumen_ig <- rbind(
+        e0_resumen_ig,
+        data.frame(period = p, region = m, sex = sexnum, e0 = tb$ex[1])
+      )
+    }
+  }
+}
+```
+
+
+
+
+### Modelo INLA: previa PC (family = poisson)
+
+Como pueden ver, se puede modificar desde el comando hyper = list(prec = list(prior =())
+```{r}
+formula_pc <- deaths ~
+  factor(sex) +
+  f(age_idx, model = "rw1", constr = TRUE,
+    hyper = list(prec = list(prior = "pc.prec", param = c(0.1, 0.01)))) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE, 
+    hyper = list(prec = list(prior = "pc.prec", param = c(0.1, 0.01)))) +
+  f(period_idx, model = "rw2", constr = TRUE,
+    hyper = list(prec = list(prior = "pc.prec", param = c(0.1, 0.01)))) +
+  f(region_period_idx, model = "iid",
+    hyper = list(prec = list(prior = "pc.prec", param = c(0.1, 0.01))))
+
+fit_pc <- inla(
+  formula = formula_pc,
+  family = "poisson",
+  data = df,
+  E = population,
+  control.predictor = list(compute = TRUE),
+  control.compute = list(config = TRUE, dic = TRUE, waic = TRUE)
+)
+```
+
+#### e0 para la previa PC
+```{r}
+pred_pc <- df %>%
+  mutate(
+    mx = pmax(fit_pc$summary.fitted.values$mean, 1e-6)
+  ) %>%
+  left_join(age_params, by = "agegroup")
+
+pred_pc$sex <- ifelse(pred_pc$sex == 1, "m", "f")
+municipios <- sort(unique(pred_pc$region))
+periodos   <- sort(unique(pred_pc$period))
+sexos      <- c("m", "f")
+Age <- c(0, 1, seq(5, 85, by = 5)) #80 a 85
+tablas <- list()
+for (muni in municipios) {
+  for (per in periodos) {
+    for (sx in sexos) {
+      pred_sub_pc <- pred_pc %>%
+        filter(region == muni, period == per, sex == sx)
+      nMx    <- pred_sub_pc$mx
+      AgeInt <- inferAgeIntAbr(vec = nMx)
+      tablas[[muni]][[per]][[sx]] <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, a0rule = "ak", axmethod = "pas", Sex = sx, mod = FALSE)
+    }
+  }
+}
+
+e0_resumen_pc <- data.frame()
+
+for (m in names(tablas)) {
+  for (p in names(tablas[[m]])) {
+    for (s in c("m", "f")) {
+      
+      tb <- tablas[[m]][[p]][[s]]
+      
+      sexnum <- if (s == "m") 1 else 2
+      
+      e0_resumen_pc <- rbind(
+        e0_resumen_pc,
+        data.frame(period = p, region = m, sex = sexnum, e0 = tb$ex[1])
+      )
+    }
+  }
+}
+```
+
+
+## Modelos INLA para la familia Poisson: previas por defecto
+
+#Tuning para la familia Poisson: Cambios de parámetros para las previas de los modelos INLA
+#Cambios de los parámetros desde la expresión de la previa en modelo INLA
+#Cambiando los parámetros del modelo INLA
+#Cambiando de parámetros en cada efecto del modelo INLA 
+
+# SB2 para Poisson
+
+Solo trabajaremos con el subgrupo de la familia SB2, la distribución F
+
+## fit_parametros_sb2
+
+```{r}
+make_sb2_prior <- function(p, q, b) {
+  sprintf(
+    "expression:
+      p = %f;
+      q = %f;
+      b = %f;
+      sigma2 = exp(-theta);
+      log_dens = lgamma(p+q) - lgamma(p) - lgamma(q) - log(b);
+      log_dens = log_dens + (p-1) * log(sigma2/b);
+      log_dens = log_dens - (p+q) * log(1 + sigma2/b);
+      log_dens = log_dens - theta;
+      return(log_dens);
+    ",
+    p, q, b
+  )
+}
+```
+
+### fit_parametros_sb2 EQUIVALENCIAS
+```{r}
+#Scale Beta 2 equivalente aprox. a Half-Cauchy
+SB2.prior_p1_q1_b1     <- make_sb2_prior(p = 1, q = 1, b = 1) 
+
+#Variantes con colas más ligeras o más pesadas (p, q controlan la forma)
+SB2.prior_p0.5_q0.5_b1 <- make_sb2_prior(p = 0.5, q = 0.5, b = 1) 
+SB2.prior_p2_q2_b1     <- make_sb2_prior(p = 2, q = 2, b = 1)
+
+#Variantes con distinta escala (b controla dónde se concentra la masa)
+SB2.prior_p1_q1_b0.5   <- make_sb2_prior(p = 1, q = 1, b = 0.5)
+SB2.prior_p1_q1_b5     <- make_sb2_prior(p = 1, q = 1, b = 5)
+```
+
+```{r}
+e0_pc_IC  <- calcular_e0_inla(fit_pc,  df, age_params, Age, nsamples = 1000)
+e0_hc_IC  <- calcular_e0_inla(fit_hc,  df, age_params, Age, nsamples = 1000)
+system.time({
+  e0_sb2_IC_10 <- calcular_e0_inla(fit_sb2, df, age_params, Age, nsamples = 1000)
+})
+system.time({
+e0_sb2_IC <- calcular_e0_inla(fit_sb2, df, age_params, Age, nsamples = 1000)
+})
+e0_ht_IC  <- calcular_e0_inla(fit_ht,  df, age_params, Age, nsamples = 1000)
+e0_ig_IC  <- calcular_e0_inla(fit_ig,  df, age_params, Age, nsamples = 1000)
+
+```
+
+
+
+# Analisis de sensitividad para la familia Poisson
+
+# Sampling from the posterior para la familia Poisson
+
+```{r}
+class(fit_pc)
+class(fit_hc)
+class(fit_ht)
+class(fit_sb2)
+class(fit_ig)
+
+head(inla.hyperpar.sample(100,fit_pc))
+head(inla.hyperpar.sample(100,fit_hc))
+head(inla.hyperpar.sample(100,fit_ht))
+head(inla.hyperpar.sample(100,fit_sb2))
+head(inla.hyperpar.sample(100,fit_ig))
+
+hist(inla.hyperpar.sample(100,fit_pc))
+hist(inla.hyperpar.sample(100,fit_hc))
+hist(inla.hyperpar.sample(100,fit_ht))
+hist(inla.hyperpar.sample(100,fit_sb2))
+hist(inla.hyperpar.sample(100,fit_ig))
+
+hist(inla.hyperpar.sample(1000,fit_pc))
+hist(inla.hyperpar.sample(1000,fit_hc))
+hist(inla.hyperpar.sample(1000,fit_ht))
+hist(inla.hyperpar.sample(1000,fit_sb2))
+hist(inla.hyperpar.sample(1000,fit_ig))
+
+hist(inla.hyperpar.sample(10000,fit_pc))
+hist(inla.hyperpar.sample(10000,fit_hc))
+hist(inla.hyperpar.sample(10000,fit_ht))
+hist(inla.hyperpar.sample(10000,fit_sb2))
+hist(inla.hyperpar.sample(10000,fit_ig))
+```
+
+# HOLD
+
+```{r}
+
+#Calcula el intervalo de mayor densidad posterior (HDP)
+inla.hpdmarginal()
+
+#Ver qué marginales están disponibles 
+names(fit_pc$marginals.hyperpar)
+
+#Ejemplo: HPD al 95% para la precisión del efecto de edad
+hpd_age <- inla.hpdmarginal(0.00000001, fit_pc$marginals.hyperpar$`Precision for age_idx`)
+print(hpd_age)
+
+#Transformar el marginal de precisión a sigma usando inla.tmarginal()
+marginal_sigma_age <- inla.tmarginal(function(x) 1/sqrt(x), 
+                                     fit_pc$marginals.hyperpar$`Precision for age_idx`)
+hpd_sigma_age <- inla.hpdmarginal(0.95, marginal_sigma_age)
+print(hpd_sigma_age)
+
+#Comparar las HPD de cada previa
+modelos_previa <- list(
+  "PC prior"      = fit_pc,
+  "Half-Cauchy"   = fit_hc,
+  "Half-t"        = fit_ht,
+  "Scale Beta2"   = fit_sb2,
+  "Inverse Gamma" = fit_ig
+)
+
+hpd_comparacion <- lapply(names(modelos_previa), function(nombre) {
+  m <- modelos_previa[[nombre]]
+  marginal_sigma <- inla.tmarginal(function(x) 1/sqrt(x), 
+                                   m$marginals.hyperpar$`Precision for age_idx`)
+  hpd <- inla.hpdmarginal(0.95, marginal_sigma)
+  data.frame(prior = nombre, hpd_low = hpd[1], hpd_high = hpd[2])
+}) %>% bind_rows()
+print(hpd_comparacion)
+
+```
+
+
+
+
+
+
+
+# Gráficos sobre la población
+
+## 1. Tasa de mortalidad por sexo y períodos quinquenales
+
+```{r}
+mx_period_plot <- function(data, muni) {
+  
+  plot <- ggplot(data %>% filter(region == muni), 
+                 aes(x = factor(period),
+                     y = mx * 1000,
+                     group = factor(agegroup),
+                     color = factor(agegroup))) +
+    geom_line() + geom_point() + theme_bw() +
+    scale_x_discrete() +
+    facet_wrap(~ sex, labeller = as_labeller(c(`m` = "Hombres", `f` = "Mujeres"))) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+    scale_color_discrete("Grupo de edad") +
+    labs(x = "Período", y = "mx (por 1,000)",
+         title = paste0("Tasa de mortalidad específica por edad (por 1,000), ", muni))
+  return(plot)
+  
+}
+```
+
+```{r}
+#Ejemplo: San Juan
+mx_period_plot(pred_sb2, "San Juan")
+#Ejemplo: Aibonito
+mx_period_plot(pred_sb2, "Aibonito")
+
+```
+
+## 2. Tasa de mortalidad por grupos quinquenales
+
+```{r}
+mx_municipio <- function(dat, muni) {
+  plot <- ggplot(dat %>% filter(region == muni), 
+                 aes(x = factor(agegroup), 
+                     y = mx, 
+                     group = factor(period), 
+                     color = factor(period))) +
+    geom_line() + geom_point() + theme_bw() + 
+    scale_y_log10(limits = c(0.00001, 1)) +
+    scale_x_discrete() +
+    facet_wrap(~ sex, labeller = as_labeller(c(`m` = "Hombres", `f` = "Mujeres"))) +
+    theme(
+      axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 10),
+      legend.text = element_text(size = 12),
+      axis.text.y  = element_text(size = 11),
+      legend.title = element_text(size = 13)) +
+    scale_color_discrete("Período") +
+    guides(color = guide_legend(ncol = 1)) + 
+    labs(x = "Grupo de edad", y = "scale log 10 mx",
+         title = paste0("Tasa de mortalidad específica por edad, ", muni))
+  return(plot)
+}
+```
+
+```{r}
+#Ejemplo: San Juan
+mx_municipio(pred_sb2, "San Juan")
+#Ejemplo: Aibonito
+mx_municipio(pred_sb2, "Aibonito")
+```
+
+
+## Gráficos: Familia Poisson
+
+# 1. Previas para observar los efectos de cada modelo
+```{r}
+plot(fit_hc)
+
+plot(fit_sb2)
+
+plot(fit_ht)
+
+plot(fit_ig)
+
+plot(fit_pc)
+```
+
+
+# 2. Comparación del e0 observado vs e0 estimado para cada previa por IC
+```{r}
+
+e0_model_plot <- function(dat, per, col, llh) {
+  ggplot(dat %>% filter(period == per), 
+         aes(x = fct_reorder(region, e0_observado), 
+             y = e0_estimado, ymin = e0_lower, ymax = e0_upper)) +
+    geom_pointrange(color = col, size = 0.3) +
+    geom_point(aes(y = e0_observado)) +
+    coord_flip() +
+    facet_wrap(sex ~ est_eval, scales = "free",
+               labeller = labeller(sex = c(`1` = "Hombres", `2` = "Mujeres"))) +
+    theme_minimal() +
+    labs(title = paste0("e0 por municipio (estimada vs. observada), ", per, ", ", llh),
+         y = "e0", x = "") +
+    theme(axis.title.x = element_text(size = 6))
+}
+
+e0_model_plot(e0_pc_IC, "2020-2024", "purple", "PC prior (10 muestras)")
+e0_model_plot(e0_hc_IC, "2020-2024", "purple", "Half-Cauchy (10 muestras)")
+e0_model_plot(e0_sb2_IC_10, "2020-2024", "purple", "Scale-Beta2 (10 muestras)")
+e0_model_plot(e0_sb2_IC, "2020-2024", "purple", "Scale-Beta2 (100 muestras)")
+e0_model_plot(e0_ht_IC, "2020-2024", "purple", "Half-t (10 muestras)")
+e0_model_plot(e0_ig_IC, "2020-2024", "purple", "Inverse-Gamma (10 muestras)")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Modelo INLA: Familia Binomial Negativa
+
+```{r}
+formula_inla <- deaths ~
+  factor(sex) +
+  f(age_idx, model = "rw1", constr = TRUE) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE) +
+  f(period_idx, model = "rw2", constr = TRUE) +
+  f(region_period_idx, model = "iid")
+
+fit <- inla(
+  formula = formula_inla,
+  family = "poisson",
+  data = df,
+  E = population,
+  control.predictor = list(compute = TRUE),
+  control.compute = list(dic = TRUE, waic = TRUE)
+)
+
+```
+
+# Analisis de sensitividad para la familia Poisson
+
+# Gráficos: Familia Poisson
+
+```{r}
+
+```
+
 
 # Referencias
 
