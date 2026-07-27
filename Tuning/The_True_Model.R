@@ -46,7 +46,8 @@ library(parallel)
 
 script_dir         <- this.path::this.dir()
 data_dir           <- file.path(script_dir, "data")
-carpeta_resultados <- "Tuning/resultados_modelos"
+carpeta_resultados <- file.path(script_dir, "resultados_modelos")
+dir.create(carpeta_resultados, recursive = TRUE, showWarnings = FALSE)
 
 # Cargar la base de datos de población y muerte
 df         <- read_csv(file.path(data_dir, "data_frame_population_deaths.csv"),
@@ -360,7 +361,7 @@ df_mujeres <- df %>% filter(sex == 2)
 familias   <- names(INLA::inla.models()$likelihood)
 modelos    <- names(INLA::inla.models()$latent)
 
-# Necesito para hacer prubas
+# Necesito para hacer pruebas
 tabla_df   = "hombres"
 familia    = "poisson"
 model_age  = "rw2"
@@ -514,24 +515,27 @@ tabla_summary <- tibble::tibble(
 
 fecha_hora <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
 
+carpeta_corrida <- file.path(
+  carpeta_resultados,
+  fecha_hora
+)
+
+dir.create(
+  carpeta_corrida,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
 readr::write_csv(tabla_summary,
-                 file.path(carpeta_resultados, 
-                           paste0(fecha_hora, "-",
-                                  nombre_modelo, "_summary.csv")))
+                 file.path(carpeta_corrida, 
+                           paste0(nombre_modelo, "_summary.csv")))
 
 # Salvar el gráfico usando en el nombre una marca temporal inicial con el formato
 # AAAA-MM-DD-HH-MM-SS (la hora está en formato 24 horas para un orden automático)
 # junto con la etiqueta del "nombre_modelo"
 
 
-archivo_pdf <- file.path(
-  carpeta_resultados,
-  paste0(
-    fecha_hora, "-",
-    nombre_modelo,
-    "_e0_todos_periodos.pdf"
-  )
-)
+archivo_pdf <- file.path(carpeta_corrida, paste0(nombre_modelo, "_e0_todos_periodos.pdf"))
 
 # Abrir el PDF
 grDevices::pdf(
@@ -551,9 +555,8 @@ grDevices::dev.off()
 
 # Salvar la tabla de cobertura
 readr::write_csv(as.data.frame(tabla),
-                 file.path(carpeta_resultados, 
-                           paste0(fecha_hora, "-",
-                                  nombre_modelo, "_cobertura.csv")))
+                 file.path(carpeta_corrida, 
+                           paste0(nombre_modelo, "_cobertura.csv")))
 #}
 
 resultado_hombres <- modelo_completo(
