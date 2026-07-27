@@ -353,35 +353,41 @@ e0_model_plot        <- function(dat, per, col, llh) {
 #                 E = population,
 #                 control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
 
+# Lectura de parámetros iniciales
+df_ambos   <- df
+df_hombres <- df %>% filter(sex == 1)
+df_mujeres <- df %>% filter(sex == 2)
+familias   <- names(INLA::inla.models()$likelihood)
+modelos    <- names(INLA::inla.models()$latent)
+
 # Definición de parámetros para INLA
-familias  <- names(INLA::inla.models()$likelihood)
-familia   <- "poisson"
-#familia   <- "nbinomial"
-modelos   <- names(INLA::inla.models()$latent)
-model_age <- "rw1" #rw1 = mujeres #rw2 = hombres
-par_p_age <- 1
-par_q_age <- 1
-par_b_age <- 1
-model_reg <- "bym2"
-par_p_reg <- 1
-par_q_reg <- 1
-par_b_reg <- 1
-model_per <- "rw2"
-par_p_per <- 1
-par_q_per <- 1
-par_b_per <- 1
-model_s_t <- "iid" #HOLD - bym2
-par_p_s_t <- 1
-par_q_s_t <- 1
-par_b_s_t <- 1
-model_cel <- "iid" #HOLD - bym2
-par_p_cel <- 1
-par_q_cel <- 1
-par_b_cel <- 1
-nsamples  <- 100 #100
+tabla_df   <- "ambos"    # cambiar por "mujeres" u "hombres"
+familia    <- "poisson"  # cambiar por "nbinomial"
+model_age  <- "rw1"      #rw1 = mujeres #rw2 = hombres
+par_p_age  <- 1
+par_q_age  <- 1
+par_b_age  <- 1
+model_reg  <- "bym2"
+par_p_reg  <- 1
+par_q_reg  <- 1
+par_b_reg  <- 1
+model_per  <- "rw2"
+par_p_per  <- 1
+par_q_per  <- 1
+par_b_per  <- 1
+model_s_t  <- "iid" #HOLD - bym2
+par_p_s_t  <- 1
+par_q_s_t  <- 1
+par_b_s_t  <- 1
+model_cel  <- "iid" #HOLD - bym2
+par_p_cel  <- 1
+par_q_cel  <- 1
+par_b_cel  <- 1
+nsamples   <- 2 #100
 
 # Etiqueta usada para nombrar los archivos generados
 nombre_modelo <- paste(
+  "gru", tabla_df,
   "fam", familia,
   "age", model_age, par_p_age, par_q_age, par_b_age,
   "reg", model_reg, par_p_reg, par_q_reg, par_b_reg,
@@ -398,17 +404,39 @@ formula_sb2 <- deaths ~
   f(age_idx, model = model_age, constr = TRUE,
     hyper = SB2.prior(par_p_age, par_q_age, par_b_age)) +
   f(region_idx, model = model_reg, graph = g, constr = TRUE,
-    hyper = SB2.prior(par_p_reg , par_q_reg , par_b_reg )) +
+    hyper = SB2.prior(par_p_reg , par_q_reg , par_b_reg)) +
   f(period_idx, model = model_per,  constr = TRUE,
     hyper = SB2.prior(par_p_per, par_q_per, par_b_per)) +
   f(region_period_idx, model = model_s_t,
     hyper = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)) +
   f(cell_idx, model = model_cel,
     hyper = SB2.prior(par_p_cel, par_b_cel, par_b_cel))
+
+formula_h <- deaths ~
+  f(age_idx, model = model_age, constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
+  f(region_idx, model = model_reg, graph = g, constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
+                 phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+  f(period_idx, model = model_per, constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
+  f(region_period_idx, model = model_s_t,
+    hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
+  f(cell_idx, model = model_cel,
+    hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_b_cel, par_b_cel))))
+
+formula_m <- formula_h
+
+nombre_formula <- c(
+  ambos   = "formula_sb2",
+  hombres = "formula_h",
+  mujeres = "formula_m"
+)[tabla_df]
+
 # Ejecutar la fórmula para INLA
-fit_sb2 <- inla(formula_sb2,
+fit_sb2 <- inla(get(nombre_formula),
                 family = familia,
-                data = df,
+                data = get(paste0("df_", tabla_df)),
                 E = population,
                 control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
 
@@ -420,10 +448,21 @@ system.time(modelo_final_con <- calcular_e0_inla_opt(fit_sb2, df, age_params,
                                                      Age, nsamples = nsamples))
 
 # Elegir el período
-periodo   <- "2020-2024"
+periodo   <- unique(df$period)
 
 # Graficar los IC
-grafica_e0 <- e0_model_plot(modelo_final_con, periodo, "purple", nombre_modelo)
+grafica_e0 <- periodo |>
+  purrr::map(
+    \(per_actual) {
+      e0_model_plot(
+        dat = modelo_final_con,
+        per = per_actual,
+        col = "purple",
+        llh = nombre_modelo
+      )
+    }
+  ) |>
+  rlang::set_names(periodo)
 
 # Tabular la cobertura
 tabla <- modelo_final_con %>%
@@ -431,13 +470,25 @@ tabla <- modelo_final_con %>%
   summarise(cobertura = 100 * mean(est_eval == "Estimación adecuada"),
             .groups = "drop")
 
+# Salvar el summary
+tabla_summary_ambos <- tibble::tibble(
+  resumen = capture.output(summary(fit_sb2_ambos))
+)
+readr::write_csv(as.data.frame(tabla),
+                 file.path(carpeta_resultados, 
+                           paste0(format(Sys.time(),"%Y-%m-%d-%I-%M-%S"), "-",
+                                  nombre_modelo, "_cobertura.csv")))
+
 # Salvar el gráfico usando en el nombre una marca temporal inicial con el formato
 # AAAA-MM-DD-HH-MM-SS (la hora está en formato 24 horas para un orden automático)
 # junto con la etiqueta del "nombre_modelo"
+purrr::iwalk(
+  grafica_e0,
+  \(grafica, per_actual) {
 ggplot2::ggsave(
   filename  = file.path(carpeta_resultados,
                         paste0(format(Sys.time(), "%Y-%m-%d-%I-%M-%S"),"-",
-                               nombre_modelo, "_", periodo,"_e0.pdf")),
+                               nombre_modelo, "_", per_actual,"_e0.pdf")),
   plot      = grafica_e0,
   #device    = grDevices::cairo_pdf,
   width     = 8,
@@ -445,6 +496,8 @@ ggplot2::ggsave(
   units     = "in",
   scale     = 2,
   limitsize = FALSE
+)
+  }
 )
 
 # Salvar la tabla de cobertura
@@ -456,9 +509,6 @@ readr::write_csv(as.data.frame(tabla),
 
 ################################################################################
 #e0_para cada sexo por separado:
-
-df_hombres <- df %>% filter(sex == 1)
-df_mujeres <- df %>% filter(sex == 2)
 
 # Hombres
 formula_h <- deaths ~
