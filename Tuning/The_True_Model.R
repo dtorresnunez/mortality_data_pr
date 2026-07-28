@@ -1,7 +1,7 @@
 ################################################
 ### Modelo para mortalidad en áreas pequeñas ###
 ################################################
-# 2026_07_24
+# 2026_07_27
 
 # Tareas:
 # Eugenio. Salvar los gráficos para todos los períodos y los resúmenes de INLA.
@@ -384,7 +384,7 @@ model_cel  = "iid"
 par_p_cel  = 1
 par_q_cel  = 1
 par_b_cel  = 1
-nsamples   = 1
+nsamples   = 10
 
 # Modelo completo
 # modelo_completo <- function(
@@ -476,9 +476,6 @@ fit_sb2 <- inla(formula_modelo,
                 E = datos_modelo$population,
                 control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
 
-# Revisar el resumen
-summary(fit_sb2)
-
 # Ejecutar las muestras por cada modelo
 system.time(modelo_final_con <- calcular_e0_inla_opt(fit_sb2,
                                                      datos_modelo,
@@ -505,13 +502,18 @@ grafica_e0 <- periodo |>
 # Tabular la cobertura
 tabla <- modelo_final_con %>%
   group_by(period, sex) %>%
-  summarise(cobertura = 100 * mean(est_eval == "Estimación adecuada", na.rm = TRUE),
-            .groups = "drop")
+  summarise(
+    pct_dentro             = 100 * mean(est_eval == "Estimación adecuada", na.rm = TRUE),
+    pct_dentro_sobreestima = 100 * mean(est_eval == "Estimación adecuada" &
+                                          e0_estimado > e0_observado, na.rm = TRUE),
+    pct_dentro_subestima   = 100 * mean(est_eval == "Estimación adecuada" &
+                                          e0_estimado < e0_observado, na.rm = TRUE),
+    pct_fuera_sobreestima  = 100 * mean(est_eval == "> e0 observado", na.rm = TRUE),
+    pct_fuera_subestima    = 100 * mean(est_eval == "< e0 observado", na.rm = TRUE),
+    .groups = "drop"
+  )
 
 # Salvar el summary
-tabla_summary <- tibble::tibble(
-  resumen = capture.output(summary(fit_sb2))
-)
 
 fecha_hora <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
 
@@ -526,9 +528,9 @@ dir.create(
   showWarnings = FALSE
 )
 
-readr::write_csv(tabla_summary,
-                 file.path(carpeta_corrida, 
-                           paste0(nombre_modelo, "_summary.csv")))
+writeLines(capture.output(summary(fit_sb2)),
+           file.path(carpeta_corrida,
+                     paste0(nombre_modelo, "_summary.txt")))
 
 # Salvar el gráfico usando en el nombre una marca temporal inicial con el formato
 # AAAA-MM-DD-HH-MM-SS (la hora está en formato 24 horas para un orden automático)
