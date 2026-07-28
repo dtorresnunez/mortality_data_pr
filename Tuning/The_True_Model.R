@@ -1,20 +1,17 @@
 ################################################
 ### Modelo para mortalidad en áreas pequeñas ###
 ################################################
-# 2026_07_24
+# 2026_07_27
 
 # Tareas:
-# Eugenio. Salvar los gráficos para todos los períodos y los resúmenes de INLA.
-# Eugenio. Crear un Tuning_1000
-# 
-# Nathalie. Segmentar la cobertura en:
-#    - Estimación adecuada.
-#    - Por debajo del intervalo: e0 observado < e0_lower.
-#    - Por encima del intervalo: e0 observado > e0_upper.
 # Nathalie y David. Escalar el número de muestras posteriores:
-#    100, 500, 1000 o más muestras.
+#    100, 500, 1000 o más muestras para la función "modelo_completo".
 # Nathalie. Extender el modelo de Poisson a Binomial Negativa
 #    y comparar DIC, WAIC y cobertura.
+# David. Revisar la función "modelo_completo" y ajustar para incorporar
+#    el sexo en el modelo, con sus respectivas previas, es decir, por cada
+#    factor en la variable sexo, una previa para age, una para region, 
+#    una para period, una para region_period, y otra para cell.
 # David. Repetir el análisis utilizando regiones senatoriales.
 #    - Hablar con el Dr. Pericchi.
 # HOLD. Optimizar el análisis de sensibilidad.
@@ -46,7 +43,8 @@ library(parallel)
 
 script_dir         <- this.path::this.dir()
 data_dir           <- file.path(script_dir, "data")
-carpeta_resultados <- "Tuning/resultados_modelos"
+carpeta_resultados <- file.path(script_dir, "resultados_modelos")
+dir.create(carpeta_resultados, recursive = TRUE, showWarnings = FALSE)
 
 # Cargar la base de datos de población y muerte
 df         <- read_csv(file.path(data_dir, "data_frame_population_deaths.csv"),
@@ -315,12 +313,12 @@ e0_model_plot        <- function(dat, per, col, llh) {
     ggh4x::facetted_pos_scales(
       y = list(
         sex == "1" ~ scale_y_continuous(
-          limits = c(65, 85),
-          breaks = seq(65, 85, by = 1)
+          limits = c(60, 85),
+          breaks = seq(60, 85, by = 1)
         ),
         sex == "2" ~ scale_y_continuous(
-          limits = c(75, 95),
-          breaks = seq(75, 95, by = 1)
+          limits = c(70, 95),
+          breaks = seq(70, 95, by = 1)
         )
       )
     ) + 
@@ -361,31 +359,33 @@ df_mujeres <- df %>% filter(sex == 2)
 familias   <- names(INLA::inla.models()$likelihood)
 modelos    <- names(INLA::inla.models()$latent)
 
-# Modelo completo
+# Modelo completo. Más adelante está el ejemplo de uso
 modelo_completo <- function(
-                     tabla_df   = "hombres",
-                     familia    = "poisson",
-                     model_age  = "rw2",
-                     par_p_age  = 1,
-                     par_q_age  = 1,
-                     par_b_age  = 1,
-                     model_reg  = "bym2",
-                     par_p_reg  = 1,
-                     par_q_reg  = 1,
-                     par_b_reg  = 1,
-                     model_per  = "rw2",
-                     par_p_per  = 1,
-                     par_q_per  = 1,
-                     par_b_per  = 1,
-                     model_s_t  = "iid",
-                     par_p_s_t  = 1,
-                     par_q_s_t  = 1,
-                     par_b_s_t  = 1,
-                     model_cel  = "iid",
-                     par_p_cel  = 1,
-                     par_q_cel  = 1,
-                     par_b_cel  = 1,
-                     nsamples   = 1){
+                     tabla_df,
+                     familia,
+                     model_age,
+                     par_p_age,
+                     par_q_age,
+                     par_b_age,
+                     model_reg,
+                     par_p_reg,
+                     par_q_reg,
+                     par_b_reg,
+                     model_per,
+                     par_p_per,
+                     par_q_per,
+                     par_b_per,
+                     model_s_t,
+                     par_p_s_t,
+                     par_q_s_t,
+                     par_b_s_t,
+                     model_cel,
+                     par_p_cel,
+                     par_q_cel,
+                     par_b_cel,
+                     nsamples,
+                     guardar    = TRUE)
+{
 # Etiqueta usada para nombrar los archivos generados
 nombre_modelo <- paste(
   "gru", tabla_df,
@@ -450,14 +450,12 @@ fit_sb2 <- inla(formula_modelo,
                 E = datos_modelo$population,
                 control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
 
-# Revisar el resumen
-summary(fit_sb2)
-
 # Ejecutar las muestras por cada modelo
-system.time(modelo_final_con <- calcular_e0_inla_opt(fit_sb2,
+tiempo_ajuste <- fit_sb2$cpu.used[["Total"]]
+tiempo_e0 <- system.time(modelo_final_con <- calcular_e0_inla_opt(fit_sb2,
                                                      datos_modelo,
                                                      age_params,
-                                                     Age, nsamples = nsamples))
+                                                     Age, nsamples = nsamples))[["elapsed"]]
 
 # Elegir el período
 periodo   <- unique(modelo_final_con$period)
@@ -477,64 +475,67 @@ grafica_e0 <- periodo |>
   rlang::set_names(periodo)
 
 # Tabular la cobertura
-tabla <- modelo_final_con %>%
+tabla_cobertura <- modelo_final_con %>%
   group_by(period, sex) %>%
-  summarise(cobertura = 100 * mean(est_eval == "Estimación adecuada", na.rm = TRUE),
-            .groups = "drop")
-
-# Salvar el summary
-tabla_summary <- tibble::tibble(
-  resumen = capture.output(summary(fit_sb2))
-)
-
-fecha_hora <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
-
-readr::write_csv(tabla_summary,
-                 file.path(carpeta_resultados, 
-                           paste0(fecha_hora, "-",
-                                  nombre_modelo, "_summary.csv")))
-
-# Salvar el gráfico usando en el nombre una marca temporal inicial con el formato
-# AAAA-MM-DD-HH-MM-SS (la hora está en formato 24 horas para un orden automático)
-# junto con la etiqueta del "nombre_modelo"
-
-
-archivo_pdf <- file.path(
-  carpeta_resultados,
-  paste0(
-    fecha_hora, "-",
-    nombre_modelo,
-    "_e0_todos_periodos.pdf"
+  summarise(
+    pct_dentro             = 100 * mean(est_eval == "Estimación adecuada", na.rm = TRUE),
+    pct_dentro_sobreestima = 100 * mean(est_eval == "Estimación adecuada" &
+                                          e0_estimado > e0_observado, na.rm = TRUE),
+    pct_dentro_subestima   = 100 * mean(est_eval == "Estimación adecuada" &
+                                          e0_estimado < e0_observado, na.rm = TRUE),
+    pct_fuera_sobreestima  = 100 * mean(est_eval == "> e0 observado", na.rm = TRUE),
+    pct_fuera_subestima    = 100 * mean(est_eval == "< e0 observado", na.rm = TRUE),
+    .groups = "drop"
   )
-)
 
-# Abrir el PDF
-grDevices::pdf(
-  file   = archivo_pdf,
-  width  = 8 * 2,
-  height = 12 * 2
-)
-
-# Cada gráfica se guarda en una página distinta
-purrr::walk(
-  grafica_e0,
-  print
-)
-
-# Cerrar el PDF
-grDevices::dev.off()
-
-# Salvar la tabla de cobertura
-readr::write_csv(as.data.frame(tabla),
-                 file.path(carpeta_resultados, 
-                           paste0(fecha_hora, "-",
-                                  nombre_modelo, "_cobertura.csv")))
+archivo_summary <- archivo_pdf <- archivo_cobertura <- NULL
+if (guardar) {
+  fecha_hora      <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
+  carpeta_corrida <- file.path(carpeta_resultados, paste(fecha_hora, tabla_df, sep = "_"))
+  dir.create(carpeta_corrida, recursive = TRUE, showWarnings = FALSE)
+  
+  archivo_summary <- file.path(carpeta_corrida, paste0(nombre_modelo, "_summary.txt"))
+  writeLines(capture.output(summary(fit_sb2)), archivo_summary)
+  
+  archivo_pdf <- file.path(carpeta_corrida, paste0(nombre_modelo, "_e0_todos_periodos.pdf"))
+  grDevices::pdf(file = archivo_pdf, width = 8 * 2, height = 12 * 2)
+  purrr::walk(grafica_e0, print)
+  grDevices::dev.off()
+  
+  archivo_cobertura <- file.path(carpeta_corrida, paste0(nombre_modelo, "_cobertura.csv"))
+  readr::write_csv(as.data.frame(tabla_cobertura), archivo_cobertura)
 }
 
+<<<<<<< HEAD
 resultado_hombres <- modelo_completo(
   tabla_df   = "ambos",
   familia    = "poisson",
   model_age  = "rw1",
+=======
+invisible(list(
+  nombre_modelo    = nombre_modelo,
+  datos            = datos_modelo,
+  formula          = formula_modelo,
+  fit              = fit_sb2,
+  modelo_final_con = modelo_final_con,
+  periodos         = periodo,
+  graficas         = grafica_e0,
+  cobertura        = tabla_cobertura,
+  tiempo_ajuste    = tiempo_ajuste,
+  tiempo_e0        = tiempo_e0,
+  archivos         = list(summary   = archivo_summary,
+                          graficas  = archivo_pdf,
+                          cobertura = archivo_cobertura)
+))
+
+}
+
+# Ejemplo 1.1: aplicación a "mujeres"
+resultado_mujeres <- modelo_completo(
+  tabla_df   = "mujeres", # opciones: "ambos", "mujeres", "hombres" # recomendación: rw1 = mujeres #rw2 = hombres  
+  familia    = "poisson", # opciones: todas las dadas en "familias"
+  model_age  = "rw1",     # opciones: todas las dadas en "modelos"
+>>>>>>> 3b191d65136dbcd024f8fef95c3868214519ecb2
   par_p_age  = 1,
   par_q_age  = 1,
   par_b_age  = 1,
@@ -556,6 +557,111 @@ resultado_hombres <- modelo_completo(
   par_b_cel  = 1,
   nsamples   = 100
 )
+
+# Ejemplo 1.2: todos los resultados de "resultados_mujeres"
+summary(resultado_mujeres$fit)            # summary del fit  
+View(resultado_mujeres$cobertura)         # tabla de cobertura
+View(resultado_mujeres$modelo_final_con)  # tabla de vida e0_observado, e0_estimado e IC
+resultado_mujeres$graficas[["2020-2024"]] # gráfica de IC para un período
+
+# Ejemplo 1.3: visualizando coeficientes del fit
+resultado_mujeres$fit$summary.fixed
+resultado_mujeres$fit$summary.hyperpar
+resultado_mujeres$fit$summary.random
+resultado_mujeres$fit$summary.fitted.values
+resultado_mujeres$fit$dic$dic
+resultado_mujeres$fit$waic$waic
+resultado_mujeres$fit$mlik
+resultado_mujeres$fit$cpu.used
+resultado_mujeres$fit$.args$data
+
+# Ejemplo 2.1: aplicación a "hombres"
+resultado_hombres <- modelo_completo(
+  tabla_df   = "hombres", # opciones: "ambos", "mujeres", "hombres" # recomendación: rw1 = mujeres #rw2 = hombres  
+  familia    = "poisson", # opciones: todas las dadas en "familias"
+  model_age  = "rw2",     # opciones: todas las dadas en "modelos"
+  par_p_age  = 1,
+  par_q_age  = 1,
+  par_b_age  = 1,
+  model_reg  = "bym2",
+  par_p_reg  = 1,
+  par_q_reg  = 1,
+  par_b_reg  = 1,
+  model_per  = "rw2",
+  par_p_per  = 1,
+  par_q_per  = 1,
+  par_b_per  = 1,
+  model_s_t  = "iid",
+  par_p_s_t  = 1,
+  par_q_s_t  = 1,
+  par_b_s_t  = 1,
+  model_cel  = "iid",
+  par_p_cel  = 1,
+  par_q_cel  = 1,
+  par_b_cel  = 1,
+  nsamples   = 100
+)
+
+# Ejemplo 2.2: todos los resultados de "resultados_hombres"
+summary(resultado_hombres$fit)            # summary del fit  
+View(resultado_hombres$cobertura)         # tabla de cobertura
+View(resultado_hombres$modelo_final_con)  # tabla de vida e0_observado, e0_estimado e IC
+resultado_hombres$graficas[["2020-2024"]] # gráfica de IC para un período
+
+# Ejemplo 2.3: visualizando coeficientes del fit
+resultado_hombres$fit$summary.fixed
+resultado_hombres$fit$summary.hyperpar
+resultado_hombres$fit$summary.random
+resultado_hombres$fit$summary.fitted.values
+resultado_hombres$fit$dic$dic
+resultado_hombres$fit$waic$waic
+resultado_hombres$fit$mlik
+resultado_hombres$fit$cpu.used
+resultado_hombres$fit$.args$data
+
+# Ejemplo 3.1: aplicación a "ambos"
+resultado_ambos <- modelo_completo(
+  tabla_df   = "ambos", # opciones: "ambos", "mujeres", "hombres" # recomendación: rw1 = mujeres #rw2 = hombres  
+  familia    = "poisson", # opciones: todas las dadas en "familias"
+  model_age  = "rw1",     # opciones: todas las dadas en "modelos"
+  par_p_age  = 1,
+  par_q_age  = 1,
+  par_b_age  = 1,
+  model_reg  = "bym2",
+  par_p_reg  = 1,
+  par_q_reg  = 1,
+  par_b_reg  = 1,
+  model_per  = "rw2",
+  par_p_per  = 1,
+  par_q_per  = 1,
+  par_b_per  = 1,
+  model_s_t  = "iid",
+  par_p_s_t  = 1,
+  par_q_s_t  = 1,
+  par_b_s_t  = 1,
+  model_cel  = "iid",
+  par_p_cel  = 1,
+  par_q_cel  = 1,
+  par_b_cel  = 1,
+  nsamples   = 100
+)
+
+# Ejemplo 3.2: todos los resultados de "resultados_ambos"
+summary(resultado_ambos$fit)            # summary del fit  
+View(resultado_ambos$cobertura)         # tabla de cobertura
+View(resultado_ambos$modelo_final_con)  # tabla de vida e0_observado, e0_estimado e IC
+resultado_ambos$graficas[["2020-2024"]] # gráfica de IC para un período
+
+# Ejemplo 3.3: visualizando coeficientes del fit
+resultado_ambos$fit$summary.fixed
+resultado_ambos$fit$summary.hyperpar
+resultado_ambos$fit$summary.random
+resultado_ambos$fit$summary.fitted.values
+resultado_ambos$fit$dic$dic
+resultado_ambos$fit$waic$waic
+resultado_ambos$fit$mlik
+resultado_ambos$fit$cpu.used
+resultado_ambos$fit$.args$data
 
 ################################################################################
 #e0_para cada sexo por separado:

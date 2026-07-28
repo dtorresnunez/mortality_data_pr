@@ -1,0 +1,65 @@
+Time used:
+    Pre = 3.29, Running = 12.7, Post = 0.977, Total = 17 
+Fixed effects:
+              mean    sd 0.025quant 0.5quant
+(Intercept) -5.248 0.008     -5.265   -5.248
+            0.975quant   mode kld
+(Intercept)     -5.231 -5.248   0
+
+Random effects:
+  Name	  Model
+    age_idx RW2 model
+   region_idx BYM2 model
+   period_idx RW2 model
+   region_period_idx IID model
+   cell_idx IID model
+
+Model hyperparameters:
+                                    mean       sd
+Precision for age_idx              1.548    0.522
+Precision for region_idx         114.292   27.584
+Phi for region_idx                 0.434    0.186
+Precision for period_idx         120.947   87.647
+Precision for region_period_idx 2539.849 1124.886
+Precision for cell_idx            45.498    1.438
+                                0.025quant
+Precision for age_idx                0.728
+Precision for region_idx            72.203
+Phi for region_idx                   0.093
+Precision for period_idx            25.386
+Precision for region_period_idx   1139.330
+Precision for cell_idx              42.724
+                                0.5quant
+Precision for age_idx              1.479
+Precision for region_idx         110.313
+Phi for region_idx                 0.434
+Precision for period_idx          98.210
+Precision for region_period_idx 2291.108
+Precision for cell_idx            45.479
+                                0.975quant
+Precision for age_idx                2.757
+Precision for region_idx           179.992
+Phi for region_idx                   0.771
+Precision for period_idx           350.783
+Precision for region_period_idx   5442.821
+Precision for cell_idx              48.384
+                                    mode
+Precision for age_idx              1.354
+Precision for region_idx         101.543
+Phi for region_idx                 0.517
+Precision for period_idx          62.911
+Precision for region_period_idx 1859.518
+Precision for cell_idx            45.447
+
+Deviance Information Criterion (DIC) ...............: 82050.60
+Deviance Information Criterion (DIC, saturated) ....: 20190.05
+Effective number of parameters .....................: 4871.32
+
+Watanabe-Akaike information criterion (WAIC) ...: 81922.72
+Effective number of parameters .................: 3719.58
+
+Marginal log-Likelihood:  -42546.93 
+ is computed 
+Posterior summaries for the linear predictor and the fitted values are computed
+(Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+
