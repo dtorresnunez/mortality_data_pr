@@ -3,7 +3,7 @@
 ################################################
 # 2026_07_27
 
-# Tareas:
+# Tareas del equipo:
 # Nathalie y David. Escalar el número de muestras posteriores:
 #    100, 500, 1000 o más muestras para la función "modelo_completo".
 # Nathalie. Extender el modelo de Poisson a Binomial Negativa
@@ -11,7 +11,7 @@
 # David. Revisar la función "modelo_completo" y ajustar para incorporar
 #    el sexo en el modelo, con sus respectivas previas, es decir, por cada
 #    factor en la variable sexo, una previa para age, una para region, 
-#    una para period, una para region_period, y otra para cell).
+#    una para period, una para region_period, y otra para cell.
 # David. Repetir el análisis utilizando regiones senatoriales.
 #    - Hablar con el Dr. Pericchi.
 # HOLD. Optimizar el análisis de sensibilidad.
@@ -547,7 +547,7 @@ resultado_mujeres <- modelo_completo(
   par_p_cel  = 1,
   par_q_cel  = 1,
   par_b_cel  = 1,
-  nsamples   = 10
+  nsamples   = 100
 )
 
 # Ejemplo 1.2: todos los resultados de "resultados_mujeres"
@@ -610,6 +610,50 @@ resultado_hombres$fit$waic$waic
 resultado_hombres$fit$mlik
 resultado_hombres$fit$cpu.used
 resultado_hombres$fit$.args$data
+
+# Ejemplo 3.1: aplicación a "ambos"
+resultado_ambos <- modelo_completo(
+  tabla_df   = "ambos", # opciones: "ambos", "mujeres", "hombres" # recomendación: rw1 = mujeres #rw2 = hombres  
+  familia    = "poisson", # opciones: todas las dadas en "familias"
+  model_age  = "rw1",     # opciones: todas las dadas en "modelos"
+  par_p_age  = 1,
+  par_q_age  = 1,
+  par_b_age  = 1,
+  model_reg  = "bym2",
+  par_p_reg  = 1,
+  par_q_reg  = 1,
+  par_b_reg  = 1,
+  model_per  = "rw2",
+  par_p_per  = 1,
+  par_q_per  = 1,
+  par_b_per  = 1,
+  model_s_t  = "iid",
+  par_p_s_t  = 1,
+  par_q_s_t  = 1,
+  par_b_s_t  = 1,
+  model_cel  = "iid",
+  par_p_cel  = 1,
+  par_q_cel  = 1,
+  par_b_cel  = 1,
+  nsamples   = 100
+)
+
+# Ejemplo 3.2: todos los resultados de "resultados_ambos"
+summary(resultado_ambos$fit)            # summary del fit  
+View(resultado_ambos$cobertura)         # tabla de cobertura
+View(resultado_ambos$modelo_final_con)  # tabla de vida e0_observado, e0_estimado e IC
+resultado_ambos$graficas[["2020-2024"]] # gráfica de IC para un período
+
+# Ejemplo 3.3: visualizando coeficientes del fit
+resultado_ambos$fit$summary.fixed
+resultado_ambos$fit$summary.hyperpar
+resultado_ambos$fit$summary.random
+resultado_ambos$fit$summary.fitted.values
+resultado_ambos$fit$dic$dic
+resultado_ambos$fit$waic$waic
+resultado_ambos$fit$mlik
+resultado_ambos$fit$cpu.used
+resultado_ambos$fit$.args$data
 
 ################################################################################
 #e0_para cada sexo por separado:
