@@ -4,17 +4,14 @@
 # 2026_07_27
 
 # Tareas:
-# Eugenio. Salvar los gráficos para todos los períodos y los resúmenes de INLA.
-# Eugenio. Crear un Tuning_1000
-# 
-# Nathalie. Segmentar la cobertura en:
-#    - Estimación adecuada.
-#    - Por debajo del intervalo: e0 observado < e0_lower.
-#    - Por encima del intervalo: e0 observado > e0_upper.
 # Nathalie y David. Escalar el número de muestras posteriores:
-#    100, 500, 1000 o más muestras.
+#    100, 500, 1000 o más muestras para el modelo_compelto.
 # Nathalie. Extender el modelo de Poisson a Binomial Negativa
 #    y comparar DIC, WAIC y cobertura.
+# David. Revisar el modelo_completo y ajustar para incorporar
+#    el sexo en el modelo, con sus respectivas previas, es decir, por cada
+#    factor en la variable sexo, una previa para age, una para region, 
+#    una para period, una para region_period, y otra para cell).
 # David. Repetir el análisis utilizando regiones senatoriales.
 #    - Hablar con el Dr. Pericchi.
 # HOLD. Optimizar el análisis de sensibilidad.
