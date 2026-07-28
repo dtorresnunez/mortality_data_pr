@@ -1,0 +1,38 @@
+resumen
+Time used:
+"    Pre = 0.525, Running = 18.9, Post = 0.9, Total = 20.3 "
+Fixed effects:
+               mean    sd 0.025quant 0.5quant 0.975quant   mode kld
+(Intercept)  -5.271 0.007     -5.285   -5.271     -5.256 -5.271   0
+factor(sex)2 -0.634 0.004     -0.643   -0.634     -0.626 -0.634   0
+
+Random effects:
+  Name	  Model
+    age_idx RW1 model
+   region_idx BYM2 model
+   period_idx RW2 model
+   region_period_idx IID model
+   cell_idx IID model
+
+Model hyperparameters:
+                                                           mean       sd 0.025quant 0.5quant 0.975quant     mode
+size for the nbinomial observations (1/overdispersion) 1.02e+03 1.18e+03    119.383 6.70e+02   4.09e+03  304.793
+Precision for age_idx                                  1.04e+00 3.26e-01      0.540 1.00e+00   1.81e+00    0.916
+Precision for region_idx                               1.26e+02 3.56e+01     69.704 1.22e+02   2.09e+02  113.854
+Phi for region_idx                                     5.82e-01 2.29e-01      0.129 6.05e-01   9.39e-01    0.759
+Precision for period_idx                               1.26e+02 5.57e+01     46.494 1.17e+02   2.61e+02   98.404
+Precision for region_period_idx                        5.91e+04 1.48e+05   2003.842 2.26e+04   3.49e+05 4823.913
+Precision for cell_idx                                 1.97e+01 5.94e-01     18.523 1.97e+01   2.09e+01   19.696
+
+Deviance Information Criterion (DIC) ...............: 159031.08
+"Deviance Information Criterion (DIC, saturated) ....: -4.91e+10"
+Effective number of parameters .....................: 11918.34
+
+Watanabe-Akaike information criterion (WAIC) ...: 158030.76
+Effective number of parameters .................: 8401.33
+
+Marginal log-Likelihood:  -83641.33 
+ is computed 
+Posterior summaries for the linear predictor and the fitted values are computed
+(Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+

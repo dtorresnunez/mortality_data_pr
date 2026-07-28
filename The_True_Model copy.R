@@ -446,9 +446,31 @@ formula_modelo <- get(
 # Ejecutar la fórmula para INLA
 fit_sb2 <- inla(formula_modelo,
                 family = familia,
+                control.family = list(
+                  hyper = list(
+                    theta = list(
+                      prior="normal",
+                      param=c(log(10),0.5)
+                    )
+                  )
+                ),
                 data = datos_modelo,
                 E = datos_modelo$population,
                 control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
+
+# fit_sb2 <- inla(formula_modelo,
+#                 family = familia,
+#                 control.family = list(
+#                   hyper = list(
+#                     theta = list(
+#                       prior="normal",
+#                       param=c(log(10),0.5)
+#                     )
+#                   )
+#                 ),
+#                 data = datos_modelo,
+#                 E = datos_modelo$population,
+#                 control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
 
 # Revisar el resumen
 summary(fit_sb2)
@@ -531,9 +553,9 @@ readr::write_csv(as.data.frame(tabla),
                                   nombre_modelo, "_cobertura.csv")))
 }
 
-resultado_hombres <- modelo_completo(
+resultado_ambos <- modelo_completo(
   tabla_df   = "ambos",
-  familia    = "poisson",
+  familia    = "nbinomial",
   model_age  = "rw1",
   par_p_age  = 1,
   par_q_age  = 1,
@@ -558,6 +580,37 @@ resultado_hombres <- modelo_completo(
 )
 
 ################################################################################
+#e0 completo
+formula_sb2_all <- deaths ~
+  factor(sex) +
+  f(age_idx, model = "rw1", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
+  f(region_idx, model = "bym2", graph = g, constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)),
+                 phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+  f(period_idx, model = "rw2", constr = TRUE,
+    hyper = list(prec = list(prior = SB2.prior(1, 1, 0.5)))) +
+  f(region_period_idx, model = "iid",
+    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
+  f(cell_idx, model = "iid",
+    hyper = list(prec = list(prior = SB2.prior(1, 1, 1))))
+
+fit_sb2_all <- inla(formula_sb2_all, 
+                    family = "nbinomial", 
+                    control.family = list(
+                      hyper = list(
+                        theta = list(
+                          prior="normal",
+                          param=c(log(100),0.5)
+                        )
+                      )
+                    ),
+                    data = df_ambos, 
+                    E = population,
+                    control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
+
+fit_sb2_all$summary.hyperpar
+
 #e0_para cada sexo por separado:
 
 # Hombres

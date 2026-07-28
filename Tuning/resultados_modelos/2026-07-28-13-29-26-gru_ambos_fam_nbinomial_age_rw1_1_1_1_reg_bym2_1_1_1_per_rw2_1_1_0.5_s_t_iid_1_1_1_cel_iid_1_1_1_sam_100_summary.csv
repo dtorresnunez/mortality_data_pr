@@ -1,0 +1,81 @@
+resumen
+Time used:
+"    Pre = 0.475, Running = 14.6, Post = 0.991, Total = 16.1 "
+Fixed effects:
+               mean    sd 0.025quant 0.5quant 0.975quant
+(Intercept)  -5.271 0.008     -5.286   -5.271     -5.255
+factor(sex)2 -0.634 0.004     -0.643   -0.634     -0.626
+               mode kld
+(Intercept)  -5.271   0
+factor(sex)2 -0.634   0
+
+Random effects:
+  Name	  Model
+    age_idx RW1 model
+   region_idx BYM2 model
+   period_idx RW2 model
+   region_period_idx IID model
+   cell_idx IID model
+
+Model hyperparameters:
+                                                           mean
+size for the nbinomial observations (1/overdispersion) 2.49e+03
+Precision for age_idx                                  1.05e+00
+Precision for region_idx                               1.34e+02
+Phi for region_idx                                     5.29e-01
+Precision for period_idx                               1.44e+02
+Precision for region_period_idx                        1.19e+04
+Precision for cell_idx                                 1.94e+01
+                                                             sd
+size for the nbinomial observations (1/overdispersion) 5579.960
+Precision for age_idx                                     0.321
+Precision for region_idx                                 29.735
+Phi for region_idx                                        0.233
+Precision for period_idx                                102.498
+Precision for region_period_idx                        8764.843
+Precision for cell_idx                                    0.697
+                                                       0.025quant
+size for the nbinomial observations (1/overdispersion)    176.138
+Precision for age_idx                                       0.498
+Precision for region_idx                                   81.786
+Phi for region_idx                                          0.127
+Precision for period_idx                                   40.521
+Precision for region_period_idx                          2626.813
+Precision for cell_idx                                     17.975
+                                                       0.5quant
+size for the nbinomial observations (1/overdispersion) 1076.664
+Precision for age_idx                                     1.026
+Precision for region_idx                                131.763
+Phi for region_idx                                        0.526
+Precision for period_idx                                116.742
+Precision for region_period_idx                        9622.845
+Precision for cell_idx                                   19.462
+                                                       0.975quant
+size for the nbinomial observations (1/overdispersion)   13954.50
+Precision for age_idx                                        1.73
+Precision for region_idx                                   198.02
+Phi for region_idx                                           0.94
+Precision for period_idx                                   417.67
+Precision for region_period_idx                          35072.25
+Precision for cell_idx                                      20.70
+                                                           mode
+size for the nbinomial observations (1/overdispersion)  382.621
+Precision for age_idx                                     0.986
+Precision for region_idx                                128.982
+Phi for region_idx                                        0.380
+Precision for period_idx                                 80.100
+Precision for region_period_idx                        6244.943
+Precision for cell_idx                                   19.643
+
+Deviance Information Criterion (DIC) ...............: 159051.66
+"Deviance Information Criterion (DIC, saturated) ....: -5.44e+10"
+Effective number of parameters .....................: 11952.25
+
+Watanabe-Akaike information criterion (WAIC) ...: 158034.08
+Effective number of parameters .................: 8418.63
+
+Marginal log-Likelihood:  -83641.07 
+ is computed 
+Posterior summaries for the linear predictor and the fitted values are computed
+(Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+
