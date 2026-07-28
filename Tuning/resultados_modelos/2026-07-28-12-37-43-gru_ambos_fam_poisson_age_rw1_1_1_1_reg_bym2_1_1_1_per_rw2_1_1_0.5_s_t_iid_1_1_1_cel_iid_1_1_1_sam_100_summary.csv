@@ -1,0 +1,88 @@
+resumen
+Time used:
+"    Pre = 0.928, Running = 16.8, Post = 2.25, Total = 20 "
+Fixed effects:
+                               mean     sd 0.025quant
+(Intercept)                  -5.597  7.454    -20.213
+factor(sex)1:period1980-1984  0.288 17.434    -33.900
+factor(sex)2:period1980-1984 -0.391 17.434    -34.580
+factor(sex)1:period1985-1989  0.360 13.885    -26.868
+factor(sex)2:period1985-1989 -0.355 13.885    -27.583
+factor(sex)1:period1990-1994  0.441 10.830    -20.796
+factor(sex)2:period1990-1994 -0.317 10.830    -21.555
+factor(sex)1:period1995-1999  0.471  8.582    -16.363
+factor(sex)2:period1995-1999 -0.273  8.582    -17.107
+factor(sex)1:period2000-2004  0.366  7.707    -14.755
+factor(sex)2:period2000-2004 -0.345  7.707    -15.466
+factor(sex)1:period2005-2009  0.357  8.582    -16.476
+factor(sex)2:period2005-2009 -0.354  8.582    -17.188
+factor(sex)1:period2010-2014  0.317 10.830    -20.920
+factor(sex)2:period2010-2014 -0.384 10.830    -21.621
+factor(sex)1:period2015-2019  0.279 13.885    -26.950
+factor(sex)2:period2015-2019 -0.444 13.885    -27.672
+factor(sex)1:period2020-2024  0.359 17.434    -33.830
+factor(sex)2:period2020-2024 -0.374 17.434    -34.562
+                             0.5quant 0.975quant   mode kld
+(Intercept)                    -5.597      9.018 -5.597   0
+factor(sex)1:period1980-1984    0.288     34.477  0.288   0
+factor(sex)2:period1980-1984   -0.391     33.797 -0.391   0
+factor(sex)1:period1985-1989    0.360     27.588  0.360   0
+factor(sex)2:period1985-1989   -0.355     26.873 -0.355   0
+factor(sex)1:period1990-1994    0.441     21.679  0.441   0
+factor(sex)2:period1990-1994   -0.317     20.921 -0.317   0
+factor(sex)1:period1995-1999    0.471     17.304  0.471   0
+factor(sex)2:period1995-1999   -0.273     16.560 -0.273   0
+factor(sex)1:period2000-2004    0.366     15.488  0.366   0
+factor(sex)2:period2000-2004   -0.345     14.776 -0.345   0
+factor(sex)1:period2005-2009    0.357     17.191  0.357   0
+factor(sex)2:period2005-2009   -0.354     16.479 -0.354   0
+factor(sex)1:period2010-2014    0.317     21.555  0.317   0
+factor(sex)2:period2010-2014   -0.384     20.854 -0.384   0
+factor(sex)1:period2015-2019    0.279     27.507  0.279   0
+factor(sex)2:period2015-2019   -0.444     26.784 -0.444   0
+factor(sex)1:period2020-2024    0.359     34.548  0.359   0
+factor(sex)2:period2020-2024   -0.374     33.815 -0.374   0
+
+Random effects:
+  Name	  Model
+    age_idx RW1 model
+   region_idx BYM2 model
+   period_idx RW2 model
+   region_period_idx IID model
+   cell_idx IID model
+
+Model hyperparameters:
+                                    mean      sd 0.025quant
+Precision for age_idx              1.083   0.248      0.669
+Precision for region_idx         150.310  41.434     91.420
+Phi for region_idx                 0.499   0.232      0.066
+Precision for period_idx           4.933  14.395      0.187
+Precision for region_period_idx 1345.633 243.471    918.488
+Precision for cell_idx            53.081   1.307     50.557
+                                0.5quant 0.975quant
+Precision for age_idx              1.058      1.639
+Precision for region_idx         143.331    252.548
+Phi for region_idx                 0.511      0.873
+Precision for period_idx           1.703     30.339
+Precision for region_period_idx 1327.962   1873.492
+Precision for cell_idx            53.063     55.705
+                                    mode
+Precision for age_idx              1.014
+Precision for region_idx         127.309
+Phi for region_idx                 0.694
+Precision for period_idx           0.435
+Precision for region_period_idx 1299.687
+Precision for cell_idx            53.025
+
+Deviance Information Criterion (DIC) ...............: 152840.65
+"Deviance Information Criterion (DIC, saturated) ....: 37796.53"
+Effective number of parameters .....................: 7948.86
+
+Watanabe-Akaike information criterion (WAIC) ...: 152648.52
+Effective number of parameters .................: 6125.60
+
+Marginal log-Likelihood:  -78820.82 
+ is computed 
+Posterior summaries for the linear predictor and the fitted values are computed
+(Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+

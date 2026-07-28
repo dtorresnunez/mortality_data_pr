@@ -188,6 +188,7 @@ calcular_e0_inla     <- function(modelo_inla, df, age_params, Age, nsamples = 10
 }
 
 # Ejecutar el modelo INLA optimizado. Funciona perfecto para Windows (ajustar mc.cores)
+
 num.cores <- detectCores(logical = T)
 calcular_e0_inla_opt <- function(modelo_inla, df, age_params, Age, nsamples = 1000, mc.cores = num.cores - 1, ...){
   
@@ -400,7 +401,7 @@ nombre_modelo <- paste(
 
 # Definir la fórmula para INLA
 formula_sb2 <- deaths ~
-  factor(sex) +
+  factor(sex)+
   f(age_idx, model = model_age, constr = TRUE,
     hyper = list(prec = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
   f(region_idx, model = model_reg, graph = g, constr = TRUE,
@@ -531,9 +532,9 @@ readr::write_csv(as.data.frame(tabla),
 }
 
 resultado_hombres <- modelo_completo(
-  tabla_df   = "hombres",
+  tabla_df   = "ambos",
   familia    = "poisson",
-  model_age  = "rw2",
+  model_age  = "rw1",
   par_p_age  = 1,
   par_q_age  = 1,
   par_b_age  = 1,
@@ -544,7 +545,7 @@ resultado_hombres <- modelo_completo(
   model_per  = "rw2",
   par_p_per  = 1,
   par_q_per  = 1,
-  par_b_per  = 1,
+  par_b_per  = 0.5,
   model_s_t  = "iid",
   par_p_s_t  = 1,
   par_q_s_t  = 1,
@@ -553,7 +554,7 @@ resultado_hombres <- modelo_completo(
   par_p_cel  = 1,
   par_q_cel  = 1,
   par_b_cel  = 1,
-  nsamples   = 1
+  nsamples   = 100
 )
 
 ################################################################################
