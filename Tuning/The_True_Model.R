@@ -186,7 +186,6 @@ calcular_e0_inla     <- function(modelo_inla, df, age_params, Age, nsamples = 10
 }
 
 # Ejecutar el modelo INLA optimizado. Funciona perfecto para Windows (ajustar mc.cores)
-
 num.cores <- detectCores(logical = T)
 calcular_e0_inla_opt <- function(modelo_inla, df, age_params, Age, nsamples = 1000, mc.cores = num.cores - 1, ...){
   
@@ -361,173 +360,167 @@ modelos    <- names(INLA::inla.models()$latent)
 
 # Modelo completo. Más adelante está el ejemplo de uso
 modelo_completo <- function(
-                     tabla_df,
-                     familia,
-                     model_age,
-                     par_p_age,
-                     par_q_age,
-                     par_b_age,
-                     model_reg,
-                     par_p_reg,
-                     par_q_reg,
-                     par_b_reg,
-                     model_per,
-                     par_p_per,
-                     par_q_per,
-                     par_b_per,
-                     model_s_t,
-                     par_p_s_t,
-                     par_q_s_t,
-                     par_b_s_t,
-                     model_cel,
-                     par_p_cel,
-                     par_q_cel,
-                     par_b_cel,
-                     nsamples,
-                     guardar    = TRUE)
+    tabla_df,
+    familia,
+    model_age,
+    par_p_age,
+    par_q_age,
+    par_b_age,
+    model_reg,
+    par_p_reg,
+    par_q_reg,
+    par_b_reg,
+    model_per,
+    par_p_per,
+    par_q_per,
+    par_b_per,
+    model_s_t,
+    par_p_s_t,
+    par_q_s_t,
+    par_b_s_t,
+    model_cel,
+    par_p_cel,
+    par_q_cel,
+    par_b_cel,
+    nsamples,
+    guardar    = TRUE)
 {
-# Etiqueta usada para nombrar los archivos generados
-nombre_modelo <- paste(
-  "gru", tabla_df,
-  "fam", familia,
-  "age", model_age, par_p_age, par_q_age, par_b_age,
-  "reg", model_reg, par_p_reg, par_q_reg, par_b_reg,
-  "per", model_per, par_p_per, par_q_per, par_b_per,
-  "s_t", model_s_t, par_p_s_t, par_q_s_t, par_b_s_t,
-  "cel", model_cel, par_p_cel, par_q_cel, par_b_cel,
-  "sam", nsamples,
-  sep = "_"
-)
-
-# Definir la fórmula para INLA
-formula_sb2 <- deaths ~
-  factor(sex)+
-  f(age_idx, model = model_age, constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
-  f(region_idx, model = model_reg, graph = g, constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
-                 phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
-  f(period_idx, model = model_per, constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
-  f(region_period_idx, model = model_s_t,
-    hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
-  f(cell_idx, model = model_cel,
-    hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
-
-formula_h <- deaths ~
-  f(age_idx, model = model_age, constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
-  f(region_idx, model = model_reg, graph = g, constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
-                 phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
-  f(period_idx, model = model_per, constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
-  f(region_period_idx, model = model_s_t,
-    hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
-  f(cell_idx, model = model_cel,
-    hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
-
-formula_m <- formula_h
-
-nombre_formula <- c(
-  ambos   = "formula_sb2",
-  hombres = "formula_h",
-  mujeres = "formula_m"
-)[tabla_df]
-
-datos_modelo <- get(
-  paste0("df_", tabla_df)
-)
-
-formula_modelo <- get(
-  unname(nombre_formula)
-)
-
-# Ejecutar la fórmula para INLA
-fit_sb2 <- inla(formula_modelo,
-                family = familia,
-                data = datos_modelo,
-                E = datos_modelo$population,
-                control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
-
-# Ejecutar las muestras por cada modelo
-tiempo_ajuste <- fit_sb2$cpu.used[["Total"]]
-tiempo_e0 <- system.time(modelo_final_con <- calcular_e0_inla_opt(fit_sb2,
-                                                     datos_modelo,
-                                                     age_params,
-                                                     Age, nsamples = nsamples))[["elapsed"]]
-
-# Elegir el período
-periodo   <- unique(modelo_final_con$period)
-
-# Graficar los IC
-grafica_e0 <- periodo |>
-  purrr::map(
-    \(per_actual) {
-      e0_model_plot(
-        dat = modelo_final_con,
-        per = per_actual,
-        col = "purple",
-        llh = nombre_modelo
-      )
-    }
-  ) |>
-  rlang::set_names(periodo)
-
-# Tabular la cobertura
-tabla_cobertura <- modelo_final_con %>%
-  group_by(period, sex) %>%
-  summarise(
-    pct_dentro             = 100 * mean(est_eval == "Estimación adecuada", na.rm = TRUE),
-    pct_dentro_sobreestima = 100 * mean(est_eval == "Estimación adecuada" &
-                                          e0_estimado > e0_observado, na.rm = TRUE),
-    pct_dentro_subestima   = 100 * mean(est_eval == "Estimación adecuada" &
-                                          e0_estimado < e0_observado, na.rm = TRUE),
-    pct_fuera_sobreestima  = 100 * mean(est_eval == "> e0 observado", na.rm = TRUE),
-    pct_fuera_subestima    = 100 * mean(est_eval == "< e0 observado", na.rm = TRUE),
-    .groups = "drop"
+  # Etiqueta usada para nombrar los archivos generados
+  nombre_modelo <- paste(
+    "gru", tabla_df,
+    "fam", familia,
+    "age", model_age, par_p_age, par_q_age, par_b_age,
+    "reg", model_reg, par_p_reg, par_q_reg, par_b_reg,
+    "per", model_per, par_p_per, par_q_per, par_b_per,
+    "s_t", model_s_t, par_p_s_t, par_q_s_t, par_b_s_t,
+    "cel", model_cel, par_p_cel, par_q_cel, par_b_cel,
+    "sam", nsamples,
+    sep = "_"
   )
-
-archivo_summary <- archivo_pdf <- archivo_cobertura <- NULL
-if (guardar) {
-  fecha_hora      <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
-  carpeta_corrida <- file.path(carpeta_resultados, paste(fecha_hora, tabla_df, sep = "_"))
-  dir.create(carpeta_corrida, recursive = TRUE, showWarnings = FALSE)
   
-  archivo_summary <- file.path(carpeta_corrida, paste0(nombre_modelo, "_summary.txt"))
-  writeLines(capture.output(summary(fit_sb2)), archivo_summary)
+  # Definir la fórmula para INLA
+  formula_sb2 <- deaths ~
+    factor(sex) +
+    f(age_idx, model = model_age, constr = TRUE,
+      hyper = list(prec = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
+    f(region_idx, model = model_reg, graph = g, constr = TRUE,
+      hyper = list(prec = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
+                   phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+    f(period_idx, model = model_per, constr = TRUE,
+      hyper = list(prec = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
+    f(region_period_idx, model = model_s_t,
+      hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
+    f(cell_idx, model = model_cel,
+      hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
   
-  archivo_pdf <- file.path(carpeta_corrida, paste0(nombre_modelo, "_e0_todos_periodos.pdf"))
-  grDevices::pdf(file = archivo_pdf, width = 8 * 2, height = 12 * 2)
-  purrr::walk(grafica_e0, print)
-  grDevices::dev.off()
+  formula_h <- deaths ~
+    f(age_idx, model = model_age, constr = TRUE,
+      hyper = list(prec = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
+    f(region_idx, model = model_reg, graph = g, constr = TRUE,
+      hyper = list(prec = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
+                   phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+    f(period_idx, model = model_per, constr = TRUE,
+      hyper = list(prec = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
+    f(region_period_idx, model = model_s_t,
+      hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
+    f(cell_idx, model = model_cel,
+      hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
   
-  archivo_cobertura <- file.path(carpeta_corrida, paste0(nombre_modelo, "_cobertura.csv"))
-  readr::write_csv(as.data.frame(tabla_cobertura), archivo_cobertura)
-}
-
-<<<<<<< HEAD
-resultado_hombres <- modelo_completo(
-  tabla_df   = "ambos",
-  familia    = "poisson",
-  model_age  = "rw1",
-=======
-invisible(list(
-  nombre_modelo    = nombre_modelo,
-  datos            = datos_modelo,
-  formula          = formula_modelo,
-  fit              = fit_sb2,
-  modelo_final_con = modelo_final_con,
-  periodos         = periodo,
-  graficas         = grafica_e0,
-  cobertura        = tabla_cobertura,
-  tiempo_ajuste    = tiempo_ajuste,
-  tiempo_e0        = tiempo_e0,
-  archivos         = list(summary   = archivo_summary,
-                          graficas  = archivo_pdf,
-                          cobertura = archivo_cobertura)
-))
-
+  formula_m <- formula_h
+  
+  nombre_formula <- c(
+    ambos   = "formula_sb2",
+    hombres = "formula_h",
+    mujeres = "formula_m"
+  )[tabla_df]
+  
+  datos_modelo <- get(
+    paste0("df_", tabla_df)
+  )
+  
+  formula_modelo <- get(
+    unname(nombre_formula)
+  )
+  
+  # Ejecutar la fórmula para INLA
+  fit_sb2 <- inla(formula_modelo,
+                  family = familia,
+                  data = datos_modelo,
+                  E = datos_modelo$population,
+                  control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
+  
+  # Ejecutar las muestras por cada modelo
+  tiempo_ajuste <- fit_sb2$cpu.used[["Total"]]
+  tiempo_e0 <- system.time(modelo_final_con <- calcular_e0_inla_opt(fit_sb2,
+                                                                    datos_modelo,
+                                                                    age_params,
+                                                                    Age, nsamples = nsamples))[["elapsed"]]
+  
+  # Elegir el período
+  periodo   <- unique(modelo_final_con$period)
+  
+  # Graficar los IC
+  grafica_e0 <- periodo |>
+    purrr::map(
+      \(per_actual) {
+        e0_model_plot(
+          dat = modelo_final_con,
+          per = per_actual,
+          col = "purple",
+          llh = nombre_modelo
+        )
+      }
+    ) |>
+    rlang::set_names(periodo)
+  
+  # Tabular la cobertura
+  tabla_cobertura <- modelo_final_con %>%
+    group_by(period, sex) %>%
+    summarise(
+      pct_dentro             = 100 * mean(est_eval == "Estimación adecuada", na.rm = TRUE),
+      pct_dentro_sobreestima = 100 * mean(est_eval == "Estimación adecuada" &
+                                            e0_estimado > e0_observado, na.rm = TRUE),
+      pct_dentro_subestima   = 100 * mean(est_eval == "Estimación adecuada" &
+                                            e0_estimado < e0_observado, na.rm = TRUE),
+      pct_fuera_sobreestima  = 100 * mean(est_eval == "> e0 observado", na.rm = TRUE),
+      pct_fuera_subestima    = 100 * mean(est_eval == "< e0 observado", na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  archivo_summary <- archivo_pdf <- archivo_cobertura <- NULL
+  if (guardar) {
+    fecha_hora      <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
+    carpeta_corrida <- file.path(carpeta_resultados, paste(fecha_hora, tabla_df, sep = "_"))
+    dir.create(carpeta_corrida, recursive = TRUE, showWarnings = FALSE)
+    
+    archivo_summary <- file.path(carpeta_corrida, paste0(nombre_modelo, "_summary.txt"))
+    writeLines(capture.output(summary(fit_sb2)), archivo_summary)
+    
+    archivo_pdf <- file.path(carpeta_corrida, paste0(nombre_modelo, "_e0_todos_periodos.pdf"))
+    grDevices::pdf(file = archivo_pdf, width = 8 * 2, height = 12 * 2)
+    purrr::walk(grafica_e0, print)
+    grDevices::dev.off()
+    
+    archivo_cobertura <- file.path(carpeta_corrida, paste0(nombre_modelo, "_cobertura.csv"))
+    readr::write_csv(as.data.frame(tabla_cobertura), archivo_cobertura)
+  }
+  
+  invisible(list(
+    nombre_modelo    = nombre_modelo,
+    datos            = datos_modelo,
+    formula          = formula_modelo,
+    fit              = fit_sb2,
+    modelo_final_con = modelo_final_con,
+    periodos         = periodo,
+    graficas         = grafica_e0,
+    cobertura        = tabla_cobertura,
+    tiempo_ajuste    = tiempo_ajuste,
+    tiempo_e0        = tiempo_e0,
+    archivos         = list(summary   = archivo_summary,
+                            graficas  = archivo_pdf,
+                            cobertura = archivo_cobertura)
+  ))
+  
 }
 
 # Ejemplo 1.1: aplicación a "mujeres"
@@ -535,7 +528,6 @@ resultado_mujeres <- modelo_completo(
   tabla_df   = "mujeres", # opciones: "ambos", "mujeres", "hombres" # recomendación: rw1 = mujeres #rw2 = hombres  
   familia    = "poisson", # opciones: todas las dadas en "familias"
   model_age  = "rw1",     # opciones: todas las dadas en "modelos"
->>>>>>> 3b191d65136dbcd024f8fef95c3868214519ecb2
   par_p_age  = 1,
   par_q_age  = 1,
   par_b_age  = 1,
@@ -546,7 +538,7 @@ resultado_mujeres <- modelo_completo(
   model_per  = "rw2",
   par_p_per  = 1,
   par_q_per  = 1,
-  par_b_per  = 0.5,
+  par_b_per  = 1,
   model_s_t  = "iid",
   par_p_s_t  = 1,
   par_q_s_t  = 1,
