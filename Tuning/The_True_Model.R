@@ -3,7 +3,7 @@
 ################################################
 # 2026_07_27
 
-# Tareas del equipo:
+# Tareas:
 # Nathalie y David. Escalar el número de muestras posteriores:
 #    100, 500, 1000 o más muestras para la función "modelo_completo".
 # Nathalie. Extender el modelo de Poisson a Binomial Negativa
