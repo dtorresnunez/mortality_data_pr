@@ -304,17 +304,17 @@ e0_model_plot        <- function(dat, per, col, llh) {
     ggh4x::facetted_pos_scales(
       y = list(
         sex == "1" ~ scale_y_continuous(
-          limits = c(60, 85),
-          breaks = seq(60, 85, by = 1)
+          limits = c(60, 90),
+          breaks = seq(60, 90, by = 1)
         ),
         sex == "2" ~ scale_y_continuous(
-          limits = c(70, 95),
-          breaks = seq(70, 95, by = 1)
+          limits = c(60, 90),
+          breaks = seq(60, 90, by = 1)
         )
       )
     ) + 
     theme_minimal() +
-    labs(title = paste0("e0 por municipio (estimada vs. observada), ", per, ", ", llh),
+    labs(title = paste0("e0 por mun. (est. vs. obs.), ", per, ", ", llh),
          y = "e0", x = "") +
     theme(axis.title.x = element_text(size = 6))
 }
@@ -377,6 +377,7 @@ modelo_completo <- function(
     nsamples,
     guardar    = TRUE)
 {
+  familia <- match.arg(familia, c("poisson", "nbinomial"))
   # Etiqueta usada para nombrar los archivos generados
   nombre_modelo <- paste(
     "gru", tabla_df,
@@ -420,7 +421,7 @@ modelo_completo <- function(
   #     hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
   #   f(cell_idx, model = model_cel,
   #     hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
-
+  
   formula_h <- deaths ~
     f(age_idx, model = model_age, constr = TRUE,
       hyper = list(prec = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
@@ -453,26 +454,53 @@ modelo_completo <- function(
   #OJO
   
   # Descomentar y Ejecutar la fórmula para INLA bajo la familia Binomial Negativa
-  # fit_sb2 <- inla(formula_modelo,
-  #                 family = familia,
-  #                 control.family = list(  
-  #                   hyper = list(
-  #                     theta = list(
-  #                       prior="normal",
-  #                       param=c(log(10),0.5)  #Genera una previa normal centrada en log(10)
-  #                     )
-  #                   )
-  #                 ),
-  #                 data = datos_modelo,
-  #                 E = datos_modelo$population,
-  #                 control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
+  if(familia == "nbinomial"){
+    fit_sb2_nbinom <- inla(formula_modelo,
+                           family = familia,
+                           control.family = list(
+                             hyper = list(
+                               theta = list(
+                                 prior="normal",
+                                 param=c(log(10),0.5)  # Genera una previa normal centrada en log(10)
+                                 # c(media, precesión) = c(log(10), 2) \approx (2.30, 2) 
+                               )
+                             )
+                           ),
+                           data = datos_modelo,
+                           E = datos_modelo$population,
+                           control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))}
   
   # Descomentar y Ejecutar la fórmula para INLA bajo la familia Poisson
-  # fit_sb2 <- inla(formula_modelo,
-  #                 family = familia,
-  #                 data = datos_modelo,
-  #                 E = datos_modelo$population,
-  #                 control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
+  if(familia == "poisson"){
+    fit_sb2_pois <- inla(formula_modelo,
+                         family = familia,
+                         data = datos_modelo,
+                         E = datos_modelo$population,
+                         control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))}
+  
+  fit_sb2_mod <- c(
+    nbinomial   = "fit_sb2_nbinom",
+    poisson = "fit_sb2_pois"
+  )[familia]
+  
+  fit_sb2 <- get(unname(fit_sb2_mod))
+  
+  if(familia == "nbinomial"){
+    hyper_nbinomial <- fit_sb2$.args$control.family[[1]]$hyper$theta$param
+    hyper_familia   <- paste(round(hyper_nbinomial, 3), collapse = "_")
+    nombre_modelo <- paste(
+      "gru", tabla_df,
+      "fam", familia,
+      "hyp", hyper_familia,
+      "age", model_age, par_p_age, par_q_age, par_b_age,
+      "reg", model_reg, par_p_reg, par_q_reg, par_b_reg,
+      "per", model_per, par_p_per, par_q_per, par_b_per,
+      "s_t", model_s_t, par_p_s_t, par_q_s_t, par_b_s_t,
+      "cel", model_cel, par_p_cel, par_q_cel, par_b_cel,
+      "sam", nsamples,
+      sep = "_"
+    )
+  }
   
   # Ejecutar las muestras por cada modelo
   tiempo_ajuste <- fit_sb2$cpu.used[["Total"]]
@@ -523,30 +551,185 @@ modelo_completo <- function(
     group_by(sex) %>%
     summarise(cobertura = 100 * mean(est_eval == "Estimación adecuada", na.rm = TRUE),
               .groups = "drop")
- 
-  archivo_summary <- archivo_pdf <- archivo_cobertura <- archivo_cobertura_completa <- archivo_cobertura_completa_sexo <- NULL
+  
+  ## begin EGR
+  xwalk_reg <- tibble::tibble(
+    reg_code = c(72001,72003,72005,72007,72009,72011,72013,72015,72017,72019,
+                 72021,72023,72025,72027,72029,72031,72033,72035,72037,72039,
+                 72041,72043,72045,72047,72049,72051,72053,72054,72055,72057,
+                 72059,72061,72063,72065,72067,72069,72071,72073,72075,72077,
+                 72079,72081,72083,72085,72087,72089,72091,72093,72095,72097,
+                 72099,72101,72103,72105,72107,72109,72111,72113,72115,72117,
+                 72119,72121,72123,72125,72127,72129,72131,72133,72135,72137,
+                 72139,72141,72143,72145,72147,72149,72151,72153),
+    name = c("Adjuntas","Aguada","Aguadilla","Aguas Buenas","Aibonito",
+             "Añasco","Arecibo","Arroyo","Barceloneta","Barranquitas",
+             "Bayamón","Cabo Rojo","Caguas","Camuy","Canóvanas","Carolina",
+             "Cataño","Cayey","Ceiba","Ciales","Cidra","Coamo","Comerío",
+             "Corozal","Culebra","Dorado","Fajardo","Florida","Guánica",
+             "Guayama","Guayanilla","Guaynabo","Gurabo","Hatillo",
+             "Hormigueros","Humacao","Isabela","Jayuya","Juana Díaz","Juncos",
+             "Lajas","Lares","Las Marías","Las Piedras","Loíza","Luquillo",
+             "Manatí","Maricao","Maunabo","Mayagüez","Moca","Morovis",
+             "Naguabo","Naranjito","Orocovis","Patillas","Peñuelas","Ponce",
+             "Quebradillas","Rincón","Río Grande","Sabana Grande","Salinas",
+             "San Germán","San Juan","San Lorenzo","San Sebastián",
+             "Santa Isabel","Toa Alta","Toa Baja","Trujillo Alto","Utuado",
+             "Vega Alta","Vega Baja","Vieques","Villalba","Yabucoa","Yauco")
+  ) %>%
+    mutate(region = chartr("áéíóúüñ", "aeiouun", name),
+           country_code = 630, include_code = 2, orden = 0)
+  
+  stopifnot(all(unique(datos_modelo$region) %in% xwalk_reg$region))
+  
+  plantilla_reg <- bind_rows(
+    xwalk_reg,
+    tibble::tibble(reg_code = 630, name = "Puerto Rico", region = "Puerto Rico",
+                   country_code = 630, include_code = 0, orden = 1)
+  ) %>% arrange(orden, reg_code)
+  
+  pred_sb2 <- datos_modelo %>%
+    mutate(
+      mx = pmax(fit_sb2$summary.fitted.values$mean, 1e-6)
+    ) %>%
+    left_join(age_params, by = "agegroup")
+  pred_sb2$sex <- ifelse(pred_sb2$sex == 1, "m", "f")
+  
+  pred_sb2 <- bind_rows(
+    pred_sb2,
+    pred_sb2 %>%
+      group_by(period, sex, agegroup, age_idx) %>%
+      summarise(mx = sum(mx * population) / sum(population),
+                population = sum(population), .groups = "drop") %>%
+      mutate(region = "Puerto Rico")
+  ) %>%
+    arrange(region, period, sex, age_idx)
+  
+  municipios <- sort(unique(pred_sb2$region))
+  periodos   <- sort(unique(pred_sb2$period))
+  sexos      <- intersect(c("m", "f"), unique(pred_sb2$sex))
+  
+  tablas <- list()
+  for (muni in municipios) {
+    for (per in periodos) {
+      for (sx in sexos) {
+        pred_sub_sb2 <- pred_sb2 %>%
+          filter(region == muni, period == per, sex == sx)
+        nMx    <- pred_sub_sb2$mx
+        AgeInt <- inferAgeIntAbr(vec = nMx)
+        tablas[[muni]][[per]][[sx]] <- lt_abridged(nMx = nMx, AgeInt = AgeInt,
+                                                   Age = Age, a0rule = "ak",
+                                                   axmethod = "pas",
+                                                   Sex = sx, mod = FALSE)
+      }
+    }
+  }
+  
+  e0_resumen_sb2 <- data.frame()
+  tablas_vida    <- data.frame()
+  for (m in names(tablas)) {
+    for (p in names(tablas[[m]])) {
+      for (s in sexos) {
+        tb     <- tablas[[m]][[p]][[s]]
+        sexnum <- if (s == "m") 1 else 2
+        e0_resumen_sb2 <- rbind(
+          e0_resumen_sb2,
+          data.frame(period = p, region = m, sex = sexnum, e0 = tb$ex[1])
+        )
+        tablas_vida <- rbind(
+          tablas_vida,
+          data.frame(region = m, period = p, sex = sexnum, tb)
+        )
+      }
+    }
+  }
+  e0_resumen <- e0_resumen_sb2 %>% arrange(region, period, sex)
+  
+  ages18    <- c(paste(seq(0, 80, 5), seq(4, 84, 5), sep = "-"), "85+")
+  map_age18 <- setNames(c("0-4", "0-4", ages18[-1]), ages)
+  anios     <- as.character(seq(1980, 2020, by = 5))
+  
+  mx18 <- pred_sb2 %>%
+    mutate(age = unname(map_age18[agegroup])) %>%
+    group_by(region, period, sex, age) %>%
+    summarise(mx = sum(mx * population) / sum(population), .groups = "drop") %>%
+    mutate(sex = ifelse(sex == "m", 1L, 2L))
+  
+  armar_e0 <- function(sx) {
+    w <- e0_resumen %>% filter(sex == sx) %>%
+      mutate(year = substr(period, 1, 4)) %>%
+      select(region, year, e0) %>%
+      tidyr::pivot_wider(names_from = year, values_from = e0)
+    for (a in setdiff(anios, names(w))) w[[a]] <- NA_real_
+    plantilla_reg %>% left_join(w, by = "region") %>%
+      select(country_code, reg_code, name, include_code, all_of(anios))
+  }
+  
+  armar_mx <- function(sx) {
+    w <- mx18 %>% filter(sex == sx) %>%
+      mutate(year = substr(period, 1, 4)) %>%
+      select(region, age, year, mx) %>%
+      tidyr::pivot_wider(names_from = year, values_from = mx)
+    for (a in setdiff(anios, names(w))) w[[a]] <- NA_real_
+    tidyr::expand_grid(plantilla_reg %>% select(region, reg_code, include_code),
+                       age = ages18) %>%
+      left_join(w, by = c("region", "age")) %>%
+      select(reg_code, age, include_code, all_of(anios))
+  }
+  ## end EG
+  
+  # begin EGR
+  archivo_summary <- archivo_pdf <- archivo_cobertura <- archivo_cobertura_completa <- archivo_cobertura_completa_sexo <- metadatos_modelo <- archivo_tablas_vida <- archivo_e0_resumen <- archivo_e0F <- archivo_e0M <- archivo_mxF <- archivo_mxM <- archivo_e0_IC <- NULL
+  # end EGR
+  
   if (guardar) {
     fecha_hora      <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
     carpeta_corrida <- file.path(carpeta_resultados, paste(fecha_hora, tabla_df, sep = "_"))
     dir.create(carpeta_corrida, recursive = TRUE, showWarnings = FALSE)
     
-    archivo_summary <- file.path(carpeta_corrida, paste0(nombre_modelo, "_summary.txt"))
+    archivo_summary <- file.path(carpeta_corrida, paste0(fecha_hora, "_02_summary.txt"))
     writeLines(capture.output(summary(fit_sb2)), archivo_summary)
     
-    archivo_pdf <- file.path(carpeta_corrida, paste0(nombre_modelo, "_e0_todos_periodos.pdf"))
+    archivo_pdf <- file.path(carpeta_corrida, paste0(fecha_hora, "_22_e0_graficas.pdf"))
     grDevices::pdf(file = archivo_pdf, width = 8 * 2, height = 12 * 2)
     purrr::walk(grafica_e0, print)
     grDevices::dev.off()
     
-    archivo_cobertura <- file.path(carpeta_corrida, paste0(nombre_modelo, "_cobertura.csv"))
+    archivo_cobertura <- file.path(carpeta_corrida, paste0(fecha_hora, "_11_cobertura.csv"))
     readr::write_csv(as.data.frame(tabla_cobertura), archivo_cobertura)
     
-    archivo_cobertura_completa <- file.path(carpeta_corrida, paste0(nombre_modelo, "_cobertura_completa.csv"))
+    archivo_cobertura_completa <- file.path(carpeta_corrida, paste0(fecha_hora, "_12_cobertura_completa.csv"))
     readr::write_csv(as.data.frame(tabla_cobertura_completa), archivo_cobertura_completa)
     
-    archivo_cobertura_completa_sexo <- file.path(carpeta_corrida, paste0(nombre_modelo, "_cobertura_completa_sexo.csv"))
+    archivo_cobertura_completa_sexo <- file.path(carpeta_corrida, paste0(fecha_hora, "_13_cobertura_completa_sexo.csv"))
     readr::write_csv(as.data.frame(tabla_cobertura_completa_sexo), archivo_cobertura_completa_sexo)
-                  
+    
+    metadatos_modelo <- file.path(carpeta_corrida, paste0(fecha_hora, "_01_metadatos.txt"))
+    writeLines(nombre_modelo, metadatos_modelo)
+    
+    ## begin EGR
+    archivo_tablas_vida <- file.path(carpeta_corrida, paste0(fecha_hora, "_24_tablas_vida.csv"))
+    readr::write_csv(as.data.frame(tablas_vida), archivo_tablas_vida)
+    
+    archivo_e0_IC <- file.path(carpeta_corrida, paste0(fecha_hora, "_21_e0_IC.csv"))
+    readr::write_csv(as.data.frame(modelo_final_con), archivo_e0_IC)
+    
+    archivo_e0_resumen <- file.path(carpeta_corrida, paste0(fecha_hora, "_23_e0_resumen.csv"))
+    readr::write_csv(as.data.frame(e0_resumen), archivo_e0_resumen)
+    
+    esc <- function(d, f) write.table(d, f, sep = "\t", row.names = FALSE,
+                                      quote = FALSE, na = "")
+    if (2 %in% e0_resumen$sex) {
+      archivo_e0F <- file.path(carpeta_corrida, paste0(fecha_hora, "_31_e0F.txt"))
+      archivo_mxF <- file.path(carpeta_corrida, paste0(fecha_hora, "_33_mxF.txt"))
+      esc(armar_e0(2), archivo_e0F); esc(armar_mx(2), archivo_mxF)
+    }
+    if (1 %in% e0_resumen$sex) {
+      archivo_e0M <- file.path(carpeta_corrida, paste0(fecha_hora, "_32_e0M.txt"))
+      archivo_mxM <- file.path(carpeta_corrida, paste0(fecha_hora, "_34_mxM.txt"))
+      esc(armar_e0(1), archivo_e0M); esc(armar_mx(1), archivo_mxM)
+    }
+    ## end EGR
   }
   
   invisible(list(
@@ -558,136 +741,30 @@ modelo_completo <- function(
     periodos         = periodo,
     graficas         = grafica_e0,
     cobertura        = tabla_cobertura,
+    # begin EGR
+    tablas_vida      = tablas_vida,
+    e0_resumen       = e0_resumen,
+    cobertura_completa      = tabla_cobertura_completa,
+    cobertura_completa_sexo = tabla_cobertura_completa_sexo,
+    # end EGR
     tiempo_ajuste    = tiempo_ajuste,
     tiempo_e0        = tiempo_e0,
     archivos         = list(summary   = archivo_summary,
                             graficas  = archivo_pdf,
                             cobertura = archivo_cobertura,
                             cobertura_completa = archivo_cobertura_completa,
-                            cobertura_completa_sexo = archivo_cobertura_completa_sexo)
+                            cobertura_completa_sexo = archivo_cobertura_completa_sexo,
+                            metadatos = metadatos_modelo,
+                            # begin EGR
+                            tablas_vida = archivo_tablas_vida,
+                            e0_resumen  = archivo_e0_resumen,
+                            e0_IC = archivo_e0_IC,
+                            # end EGR
+                            e0F = archivo_e0F, e0M = archivo_e0M,
+                            mxF = archivo_mxF, mxM = archivo_mxM)
   ))
   
 }
-
-# Ejemplo 1.1: aplicación a "mujeres"
-resultado_mujeres <- modelo_completo(
-  tabla_df   = "mujeres", # opciones: "ambos", "mujeres", "hombres" # recomendación: rw1 = mujeres #rw2 = hombres  
-  familia    = "poisson", # opciones: todas las dadas en "familias"
-  model_age  = "rw1",     # opciones: todas las dadas en "modelos"
-  par_p_age  = 1,
-  par_q_age  = 1,
-  par_b_age  = 1,
-  model_reg  = "bym2",
-  par_p_reg  = 1,
-  par_q_reg  = 1,
-  par_b_reg  = 1,
-  model_per  = "rw2",
-  par_p_per  = 1,
-  par_q_per  = 1,
-  par_b_per  = 1,
-  model_s_t  = "iid",
-  par_p_s_t  = 1,
-  par_q_s_t  = 1,
-  par_b_s_t  = 1,
-  model_cel  = "iid",
-  par_p_cel  = 1,
-  par_q_cel  = 1,
-  par_b_cel  = 1,
-  nsamples   = 100
-)
-
-# Ejemplo 1.2: todos los resultados de "resultados_mujeres"
-summary(resultado_mujeres$fit)                  # summary del fit  
-View(resultado_mujeres$cobertura)               # tabla de cobertura
-View(resultado_mujeres$cobertura_completa)      # tabla de cobertura completa
-View(resultado_mujeres$cobertura_completa_sexo) # tabla de cobertura completa por sexo
-View(resultado_mujeres$modelo_final_con)        # tabla de vida e0_observado, e0_estimado e IC
-resultado_mujeres$graficas[["2020-2024"]]       # gráfica de IC para un período
-
-# Ejemplo 1.3: visualizando coeficientes del fit
-resultado_mujeres$fit$summary.fixed
-resultado_mujeres$fit$summary.hyperpar
-resultado_mujeres$fit$summary.random
-resultado_mujeres$fit$summary.fitted.values
-resultado_mujeres$fit$dic$dic
-resultado_mujeres$fit$waic$waic
-resultado_mujeres$fit$mlik
-resultado_mujeres$fit$cpu.used
-resultado_mujeres$fit$.args$data
-
-# Ejemplo 2.1: aplicación a "hombres"
-resultado_hombres <- modelo_completo(
-  tabla_df   = "hombres", # opciones: "ambos", "mujeres", "hombres" # recomendación: rw1 = mujeres #rw2 = hombres  
-  familia    = "poisson", # opciones: todas las dadas en "familias"
-  model_age  = "rw2",     # opciones: todas las dadas en "modelos"
-  par_p_age  = 1,
-  par_q_age  = 1,
-  par_b_age  = 1,
-  model_reg  = "bym2",
-  par_p_reg  = 1,
-  par_q_reg  = 1,
-  par_b_reg  = 1,
-  model_per  = "rw2",
-  par_p_per  = 1,
-  par_q_per  = 1,
-  par_b_per  = 1,
-  model_s_t  = "iid",
-  par_p_s_t  = 1,
-  par_q_s_t  = 1,
-  par_b_s_t  = 1,
-  model_cel  = "iid",
-  par_p_cel  = 1,
-  par_q_cel  = 1,
-  par_b_cel  = 1,
-  nsamples   = 100
-)
-
-# Ejemplo 2.2: todos los resultados de "resultados_hombres"
-summary(resultado_hombres$fit)                  # summary del fit  
-View(resultado_hombres$cobertura)               # tabla de cobertura
-View(resultado_hombres$cobertura_completa)      # tabla de cobertura completa
-View(resultado_hombres$cobertura_completa_sexo) # tabla de cobertura completa por sexo
-View(resultado_hombres$modelo_final_con)        # tabla de vida e0_observado, e0_estimado e IC
-resultado_hombres$graficas[["2020-2024"]]       # gráfica de IC para un período
-
-# Ejemplo 2.3: visualizando coeficientes del fit
-resultado_hombres$fit$summary.fixed
-resultado_hombres$fit$summary.hyperpar
-resultado_hombres$fit$summary.random
-resultado_hombres$fit$summary.fitted.values
-resultado_hombres$fit$dic$dic
-resultado_hombres$fit$waic$waic
-resultado_hombres$fit$mlik
-resultado_hombres$fit$cpu.used
-resultado_hombres$fit$.args$data
-
-# Ejemplo 3.1: aplicación a "ambos"
-# resultado_ambos <- modelo_completo(
-#   tabla_df   = "ambos", # opciones: "ambos", "mujeres", "hombres" # recomendación: rw1 = mujeres #rw2 = hombres  
-#   familia    = "nbinomial", # opciones: todas las dadas en "familias"
-#   model_age  = "rw1",     # opciones: todas las dadas en "modelos"
-#   par_p_age  = 1,
-#   par_q_age  = 1,
-#   par_b_age  = 1,
-#   model_reg  = "bym2",
-#   par_p_reg  = 1,
-#   par_q_reg  = 1,
-#   par_b_reg  = 1,
-#   model_per  = "rw2",
-#   par_p_per  = 1,
-#   par_q_per  = 1,
-#   par_b_per  = 1,
-#   model_s_t  = "iid",
-#   par_p_s_t  = 1,
-#   par_q_s_t  = 1,
-#   par_b_s_t  = 1,
-#   model_cel  = "iid",
-#   par_p_cel  = 1,
-#   par_q_cel  = 1,
-#   par_b_cel  = 1,
-#   nsamples   = 100
-# )
-
 
 # Resultado de muestras para la familia Binomial Negativa sb2(1,1,10)
 resultado_ambos_nbinomial <- modelo_completo(
@@ -743,32 +820,15 @@ resultado_ambos_poisson <- modelo_completo(
   nsamples   = 100
 )
 
-# Ejemplo 3.2: todos los resultados de "resultados_ambos"
-summary(resultado_ambos$fit)                  # summary del fit  
-View(resultado_ambos$cobertura)               # tabla de cobertura
-View(resultado_ambos$cobertura_completa)      # tabla de cobertura completa
-View(resultado_ambos$cobertura_completa_sexo) # tabla de cobertura completa por sexo
-View(resultado_ambos$modelo_final_con)        # tabla de vida e0_observado, e0_estimado e IC
-resultado_ambos$graficas[["2020-2024"]]       # gráfica de IC para un período
-
-# Ejemplo 3.3: visualizando coeficientes del fit
-resultado_ambos$fit$summary.fixed
-resultado_ambos$fit$summary.hyperpar
-resultado_ambos$fit$summary.random
-resultado_ambos$fit$summary.fitted.values
-resultado_ambos$fit$dic$dic
-resultado_ambos$fit$waic$waic
-resultado_ambos$fit$mlik
-resultado_ambos$fit$cpu.used
-resultado_ambos$fit$.args$data
-
-
 # Todos los resultados de "resultados_ambos_nbinomial"
 summary(resultado_ambos_nbinomial$fit)                  # summary del fit  
 View(resultado_ambos_nbinomial$cobertura)               # tabla de cobertura
 View(resultado_ambos_nbinomial$cobertura_completa)      # tabla de cobertura completa
 View(resultado_ambos_nbinomial$cobertura_completa_sexo) # tabla de cobertura completa por sexo
 View(resultado_ambos_nbinomial$modelo_final_con)        # tabla de vida e0_observado, e0_estimado e IC
+View(resultado_ambos_nbinomial$e0_resumen)              # tabla de e0 por region-periodo-sexo OJO: (incluye PR)
+View(resultado_ambos_nbinomial$tablas_vida)             # tablas de vida completas (Age, nMx, nqx, lx, ndx, nLx, Tx, ex) OJO: (incluye PR)
+resultado_ambos_nbinomial$archivos$metadatos            # parámetros del modelo
 resultado_ambos_nbinomial$graficas[["2020-2024"]]       # gráfica de IC para un período
 
 # Visualizando coeficientes del fit de "resultados_ambos_nbinomial"
@@ -782,13 +842,15 @@ resultado_ambos_nbinomial$fit$mlik
 resultado_ambos_nbinomial$fit$cpu.used
 resultado_ambos_nbinomial$fit$.args$data
 
-
 # Todos los resultados de "resultados_ambos_poisson"
 summary(resultado_ambos_poisson$fit)                  # summary del fit  
 View(resultado_ambos_poisson$cobertura)               # tabla de cobertura
 View(resultado_ambos_poisson$cobertura_completa)      # tabla de cobertura completa
 View(resultado_ambos_poisson$cobertura_completa_sexo) # tabla de cobertura completa por sexo
 View(resultado_ambos_poisson$modelo_final_con)        # tabla de vida e0_observado, e0_estimado e IC
+View(resultado_ambos_poisson$e0_resumen)              # tabla de e0 por region-periodo-sexo OJO: (incluye PR)
+View(resultado_ambos_poisson$tablas_vida)             # tablas de vida completas (Age, nMx, nqx, lx, ndx, nLx, Tx, ex) OJO: (incluye PR)
+resultado_ambos_poisson$archivos$metadatos            # parámetros del modelo
 resultado_ambos_poisson$graficas[["2020-2024"]]       # gráfica de IC para un período
 
 # Visualizando coeficientes del fit de "resultados_ambos_poisson"
@@ -801,8 +863,6 @@ resultado_ambos_poisson$fit$waic$waic
 resultado_ambos_poisson$fit$mlik
 resultado_ambos_poisson$fit$cpu.used
 resultado_ambos_poisson$fit$.args$data
-
-
 
 
 ################################################################################
