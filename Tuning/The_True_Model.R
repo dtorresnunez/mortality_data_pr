@@ -451,9 +451,6 @@ modelo_completo <- function(
     unname(nombre_formula)
   )
   
-  #OJO
-  
-  # Descomentar y Ejecutar la fórmula para INLA bajo la familia Binomial Negativa
   if(familia == "nbinomial"){
     fit_sb2_nbinom <- inla(formula_modelo,
                            family = familia,
@@ -469,8 +466,7 @@ modelo_completo <- function(
                            data = datos_modelo,
                            E = datos_modelo$population,
                            control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))}
-  
-  # Descomentar y Ejecutar la fórmula para INLA bajo la familia Poisson
+
   if(familia == "poisson"){
     fit_sb2_pois <- inla(formula_modelo,
                          family = familia,
