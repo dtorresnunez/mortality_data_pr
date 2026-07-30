@@ -786,7 +786,7 @@ resultado_ambos_nbinomial <- modelo_completo(
   par_p_cel  = 1,
   par_q_cel  = 1,
   par_b_cel  = 10,
-  nsamples   = 100
+  nsamples   = 1000
 )
 
 #Resultado de muestras para la familia Poisson sb2(1,1,10)
@@ -813,7 +813,7 @@ resultado_ambos_poisson <- modelo_completo(
   par_p_cel  = 1,
   par_q_cel  = 1,
   par_b_cel  = 10,
-  nsamples   = 100
+  nsamples   = 1000
 )
 
 # Todos los resultados de "resultados_ambos_nbinomial"
