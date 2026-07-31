@@ -451,6 +451,9 @@ modelo_completo <- function(
     unname(nombre_formula)
   )
   
+  #OJO
+  
+  # Descomentar y Ejecutar la fórmula para INLA bajo la familia Binomial Negativa
   if(familia == "nbinomial"){
     fit_sb2_nbinom <- inla(formula_modelo,
                            family = familia,
@@ -466,7 +469,8 @@ modelo_completo <- function(
                            data = datos_modelo,
                            E = datos_modelo$population,
                            control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))}
-
+  
+  # Descomentar y Ejecutar la fórmula para INLA bajo la familia Poisson
   if(familia == "poisson"){
     fit_sb2_pois <- inla(formula_modelo,
                          family = familia,
@@ -786,7 +790,7 @@ resultado_ambos_nbinomial <- modelo_completo(
   par_p_cel  = 1,
   par_q_cel  = 1,
   par_b_cel  = 10,
-  nsamples   = 1000
+  nsamples   = 100
 )
 
 #Resultado de muestras para la familia Poisson sb2(1,1,10)
@@ -813,7 +817,7 @@ resultado_ambos_poisson <- modelo_completo(
   par_p_cel  = 1,
   par_q_cel  = 1,
   par_b_cel  = 10,
-  nsamples   = 1000
+  nsamples   = 100
 )
 
 # Todos los resultados de "resultados_ambos_nbinomial"
