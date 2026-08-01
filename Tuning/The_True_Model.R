@@ -103,8 +103,10 @@ calcular_e0_inla     <- function(modelo_inla, df, age_params, Age, nsamples = 10
         nMx <- sub$mx
         if (length(nMx) <= 5) next
         AgeInt <- inferAgeIntAbr(vec = nMx)
+        ff <- Age[Age >= 60 & Age < max(Age) & sub$deaths > 0]
+        if (length(ff) < 2) ff <- Age[Age >= 60 & Age < max(Age)]
         tb <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, Sex = sx,
-                          a0rule = "ak", axmethod = "pas", mod = FALSE)
+                          a0rule = "ak", axmethod = "pas", mod = FALSE, extrapLaw   = "kannisto", extrapFrom  = 80, extrapFit = ff)
         e0_obs_list[[length(e0_obs_list) + 1]] <- data.frame(
           region = reg, period = per, sex = ifelse(sx == "m", 1, 2),
           e0_observado = tb$ex[1]
@@ -115,6 +117,7 @@ calcular_e0_inla     <- function(modelo_inla, df, age_params, Age, nsamples = 10
   e0_observado_df <- bind_rows(e0_obs_list)
   
   # Muestras posteriores del predictor
+  set.seed(123)
   samples <- inla.posterior.sample(nsamples, modelo_inla, seed = 123)
   
   log_lambda_matrix_all <- inla.posterior.sample.eval(
@@ -143,8 +146,10 @@ calcular_e0_inla     <- function(modelo_inla, df, age_params, Age, nsamples = 10
       nMx <- sub$mx
       if (length(nMx) <= 5) next
       AgeInt <- inferAgeIntAbr(vec = nMx)
+      ff <- Age[Age >= 60 & Age < max(Age) & sub$deaths > 0]
+      if (length(ff) < 2) ff <- Age[Age >= 60 & Age < max(Age)]
       tb <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, Sex = sx,
-                        a0rule = "ak", axmethod = "pas", mod = FALSE)
+                        a0rule = "ak", axmethod = "pas", mod = FALSE, extrapLaw   = "kannisto", extrapFrom  = 80, extrapFit = ff)
       contador <- contador + 1
       e0_sim_list[[contador]] <- data.frame(
         sim = s, region = reg, period = per,
@@ -203,18 +208,27 @@ calcular_e0_inla_opt <- function(modelo_inla, df, age_params, Age, nsamples = 10
   mx_obs      <- pmax(df$deaths / df$population, 1e-6)
   # AgeInt solo depende del largo del vector; una vez por grupo basta
   AgeInt_list <- lapply(idx_list, function(ix) inferAgeIntAbr(vec = mx_obs[ix]))
+  # edades del ajuste Kannisto: dependen solo de deaths observadas; una vez por grupo
+  extrapFit_list <- lapply(idx_list, function(ix) {
+    ff <- Age[Age >= 60 & Age < max(Age) & df$deaths[ix] > 0]
+    if (length(ff) < 2) ff <- Age[Age >= 60 & Age < max(Age)]  # Kannisto necesita >= 2 puntos
+    ff
+  })
   
   # función auxiliar: e0 de un grupo dado un vector de mx (df completo)
   e0_grupo <- function(g, mx_vec) {
     lt_abridged(nMx = mx_vec[idx_list[[g]]], AgeInt = AgeInt_list[[g]],
                 Age = Age, Sex = sex_list[g],
-                a0rule = "ak", axmethod = "pas", mod = FALSE)$ex[1]
+                a0rule = "ak", axmethod = "pas", mod = FALSE,
+                extrapLaw = "kannisto", extrapFrom = 80,
+                extrapFit = extrapFit_list[[g]])$ex[1]
   }
   
   # --- e0 observado ---------------------------------------------------------
   e0_obs <- vapply(seq_len(G), e0_grupo, numeric(1), mx_vec = mx_obs)
   
   # --- muestras posteriores del predictor -----------------------------------
+  set.seed(123)
   samples <- inla.posterior.sample(nsamples, modelo_inla, seed = 123, ...)
   log_lambda_matrix <- inla.posterior.sample.eval(
     function(...) { Predictor },
@@ -233,7 +247,7 @@ calcular_e0_inla_opt <- function(modelo_inla, df, age_params, Age, nsamples = 10
     bloques  <- split(seq_len(nsamples), sort(rep_len(seq_len(mc.cores), nsamples)))
     sub_mats <- lapply(bloques, function(ss) mx_matrix[, ss, drop = FALSE])
     
-    trabajador <- function(subm, idx_list, AgeInt_list, sex_list, Age) {
+    trabajador <- function(subm, idx_list, AgeInt_list, sex_list, Age, extrapFit_list) {
       G <- length(idx_list)
       apply(subm, 2, function(mx_vec) {
         vapply(seq_len(G), function(g) {
@@ -241,7 +255,9 @@ calcular_e0_inla_opt <- function(modelo_inla, df, age_params, Age, nsamples = 10
                                  AgeInt = AgeInt_list[[g]],
                                  Age = Age, Sex = sex_list[g],
                                  a0rule = "ak", axmethod = "pas",
-                                 mod = FALSE)$ex[1]
+                                 mod = FALSE, extrapLaw = "kannisto",
+                                 extrapFrom = 80,
+                                 extrapFit = extrapFit_list[[g]])$ex[1]
         }, numeric(1))
       })
     }
@@ -252,7 +268,8 @@ calcular_e0_inla_opt <- function(modelo_inla, df, age_params, Age, nsamples = 10
     on.exit(parallel::stopCluster(cl), add = TRUE)
     res <- parallel::parLapply(cl, sub_mats, trabajador,
                                idx_list = idx_list, AgeInt_list = AgeInt_list,
-                               sex_list = sex_list, Age = Age)
+                               sex_list = sex_list, Age = Age,
+                               extrapFit_list = extrapFit_list)
     e0_mat <- do.call(cbind, res)   # bloques contiguos -> orden original
     
   } else if (mc.cores > 1) {
@@ -406,6 +423,18 @@ modelo_completo <- function(
       hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
     f(cell_idx, model = model_cel,
       hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
+  
+  # formula_sb2 <- deaths ~
+  #   factor(sex):period + #nuevo cambio: efecto de interacción sexo y período
+  #   f(age_idx, model = model_age, constr = TRUE,
+  #     hyper = list(prec = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
+  #   f(region_idx, model = model_reg, graph = g, constr = TRUE,
+  #     hyper = list(prec = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
+  #                  phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+  #   f(period_idx, model = model_per, constr = TRUE,
+  #     hyper = list(prec = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
+  #   f(region_period_idx, model = model_s_t,
+  #     hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t))))
   
   #No descomentar - formula anterior
   # formula_sb2 <- deaths ~
@@ -620,7 +649,9 @@ modelo_completo <- function(
         tablas[[muni]][[per]][[sx]] <- lt_abridged(nMx = nMx, AgeInt = AgeInt,
                                                    Age = Age, a0rule = "ak",
                                                    axmethod = "pas",
-                                                   Sex = sx, mod = FALSE)
+                                                   Sex = sx, mod = FALSE,
+                                                   extrapLaw = "kannisto", extrapFrom = 80,
+                                                   extrapFit = Age[Age >= 60 & Age < max(Age)])
       }
     }
   }
