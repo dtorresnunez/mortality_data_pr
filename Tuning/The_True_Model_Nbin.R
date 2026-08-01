@@ -103,8 +103,10 @@ calcular_e0_inla     <- function(modelo_inla, df, age_params, Age, nsamples = 10
         nMx <- sub$mx
         if (length(nMx) <= 5) next
         AgeInt <- inferAgeIntAbr(vec = nMx)
+        ff <- Age[Age >= 60 & Age < max(Age) & sub$deaths > 0]
+        if (length(ff) < 2) ff <- Age[Age >= 60 & Age < max(Age)]
         tb <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, Sex = sx,
-                          a0rule = "ak", axmethod = "pas", mod = FALSE, extrapLaw   = "kannisto", extrapFrom  = 80, extrapFit = Age[Age >= 60 & Age < max(Age) & sub$deaths > 0])
+                          a0rule = "ak", axmethod = "pas", mod = FALSE, extrapLaw   = "kannisto", extrapFrom  = 80, extrapFit = ff)
         e0_obs_list[[length(e0_obs_list) + 1]] <- data.frame(
           region = reg, period = per, sex = ifelse(sx == "m", 1, 2),
           e0_observado = tb$ex[1]
@@ -115,6 +117,7 @@ calcular_e0_inla     <- function(modelo_inla, df, age_params, Age, nsamples = 10
   e0_observado_df <- bind_rows(e0_obs_list)
   
   # Muestras posteriores del predictor
+  set.seed(123)
   samples <- inla.posterior.sample(nsamples, modelo_inla, seed = 123)
   
   log_lambda_matrix_all <- inla.posterior.sample.eval(
@@ -143,8 +146,10 @@ calcular_e0_inla     <- function(modelo_inla, df, age_params, Age, nsamples = 10
       nMx <- sub$mx
       if (length(nMx) <= 5) next
       AgeInt <- inferAgeIntAbr(vec = nMx)
+      ff <- Age[Age >= 60 & Age < max(Age) & sub$deaths > 0]
+      if (length(ff) < 2) ff <- Age[Age >= 60 & Age < max(Age)]
       tb <- lt_abridged(nMx = nMx, AgeInt = AgeInt, Age = Age, Sex = sx,
-                        a0rule = "ak", axmethod = "pas", mod = FALSE, extrapLaw   = "kannisto", extrapFrom  = 80, extrapFit = Age[Age >= 60 & Age < max(Age) & sub$deaths > 0])
+                        a0rule = "ak", axmethod = "pas", mod = FALSE, extrapLaw   = "kannisto", extrapFrom  = 80, extrapFit = ff)
       contador <- contador + 1
       e0_sim_list[[contador]] <- data.frame(
         sim = s, region = reg, period = per,
@@ -223,6 +228,7 @@ calcular_e0_inla_opt <- function(modelo_inla, df, age_params, Age, nsamples = 10
   e0_obs <- vapply(seq_len(G), e0_grupo, numeric(1), mx_vec = mx_obs)
   
   # --- muestras posteriores del predictor -----------------------------------
+  set.seed(123)
   samples <- inla.posterior.sample(nsamples, modelo_inla, seed = 123, ...)
   log_lambda_matrix <- inla.posterior.sample.eval(
     function(...) { Predictor },
