@@ -809,156 +809,156 @@ resultado_ambos_nbinomial <- modelo_completo(
   model_age  = "rw2",        #Mejora de RW1 a RW2
   par_p_age  = 1,
   par_q_age  = 1,
-  par_b_age  = 10,          
+  par_b_age  = 100,          
   model_reg  = "bym2",
   par_p_reg  = 1,
   par_q_reg  = 1,
-  par_b_reg  = 10,
+  par_b_reg  = 100,
   model_per  = "rw2",
   par_p_per  = 1,
   par_q_per  = 1,
-  par_b_per  = 10,
+  par_b_per  = 100,
   model_s_t  = "iid",
   par_p_s_t  = 1,
   par_q_s_t  = 1,
-  par_b_s_t  = 10,
+  par_b_s_t  = 100,
   model_cel  = "iid",
   par_p_cel  = 1,
   par_q_cel  = 1,
-  par_b_cel  = 10,
-  nsamples   = 100
+  par_b_cel  = 100,
+  nsamples   = 1000
 )
 
-#Resultado de muestras para la familia Poisson sb2(1,1,10)
-resultado_ambos_poisson <- modelo_completo(
-  tabla_df   = "ambos",  
-  familia    = "poisson", 
-  model_age  = "rw2",     #Mejora de RW1 a RW2
-  par_p_age  = 1,
-  par_q_age  = 1,
-  par_b_age  = 10,
-  model_reg  = "bym2",
-  par_p_reg  = 1,
-  par_q_reg  = 1,
-  par_b_reg  = 10,
-  model_per  = "rw2",
-  par_p_per  = 1,
-  par_q_per  = 1,
-  par_b_per  = 10,
-  model_s_t  = "iid",
-  par_p_s_t  = 1,
-  par_q_s_t  = 1,
-  par_b_s_t  = 10,
-  model_cel  = "iid",
-  par_p_cel  = 1,
-  par_q_cel  = 1,
-  par_b_cel  = 10,
-  nsamples   = 100
-)
-
-# Todos los resultados de "resultados_ambos_nbinomial"
-summary(resultado_ambos_nbinomial$fit)                  # summary del fit  
-View(resultado_ambos_nbinomial$cobertura)               # tabla de cobertura
-View(resultado_ambos_nbinomial$cobertura_completa)      # tabla de cobertura completa
-View(resultado_ambos_nbinomial$cobertura_completa_sexo) # tabla de cobertura completa por sexo
-View(resultado_ambos_nbinomial$modelo_final_con)        # tabla de vida e0_observado, e0_estimado e IC
-View(resultado_ambos_nbinomial$e0_resumen)              # tabla de e0 por region-periodo-sexo OJO: (incluye PR)
-View(resultado_ambos_nbinomial$tablas_vida)             # tablas de vida completas (Age, nMx, nqx, lx, ndx, nLx, Tx, ex) OJO: (incluye PR)
-resultado_ambos_nbinomial$archivos$metadatos            # parámetros del modelo
-resultado_ambos_nbinomial$graficas[["2020-2024"]]       # gráfica de IC para un período
-
-# Visualizando coeficientes del fit de "resultados_ambos_nbinomial"
-resultado_ambos_nbinomial$fit$summary.fixed
-resultado_ambos_nbinomial$fit$summary.hyperpar
-resultado_ambos_nbinomial$fit$summary.random
-resultado_ambos_nbinomial$fit$summary.fitted.values
-resultado_ambos_nbinomial$fit$dic$dic
-resultado_ambos_nbinomial$fit$waic$waic
-resultado_ambos_nbinomial$fit$mlik
-resultado_ambos_nbinomial$fit$cpu.used
-resultado_ambos_nbinomial$fit$.args$data
-
-# Todos los resultados de "resultados_ambos_poisson"
-summary(resultado_ambos_poisson$fit)                  # summary del fit  
-View(resultado_ambos_poisson$cobertura)               # tabla de cobertura
-View(resultado_ambos_poisson$cobertura_completa)      # tabla de cobertura completa
-View(resultado_ambos_poisson$cobertura_completa_sexo) # tabla de cobertura completa por sexo
-View(resultado_ambos_poisson$modelo_final_con)        # tabla de vida e0_observado, e0_estimado e IC
-View(resultado_ambos_poisson$e0_resumen)              # tabla de e0 por region-periodo-sexo OJO: (incluye PR)
-View(resultado_ambos_poisson$tablas_vida)             # tablas de vida completas (Age, nMx, nqx, lx, ndx, nLx, Tx, ex) OJO: (incluye PR)
-resultado_ambos_poisson$archivos$metadatos            # parámetros del modelo
-resultado_ambos_poisson$graficas[["2020-2024"]]       # gráfica de IC para un período
-
-# Visualizando coeficientes del fit de "resultados_ambos_poisson"
-resultado_ambos_poisson$fit$summary.fixed
-resultado_ambos_poisson$fit$summary.hyperpar
-resultado_ambos_poisson$fit$summary.random
-resultado_ambos_poisson$fit$summary.fitted.values
-resultado_ambos_poisson$fit$dic$dic
-resultado_ambos_poisson$fit$waic$waic
-resultado_ambos_poisson$fit$mlik
-resultado_ambos_poisson$fit$cpu.used
-resultado_ambos_poisson$fit$.args$data
-
-
-################################################################################
-#e0_para cada sexo por separado:
-
-# Hombres
-formula_h <- deaths ~
-  f(age_idx, model = "rw1", constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
-  f(region_idx, model = "bym2", graph = g, constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)),
-                 phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
-  f(period_idx, model = "rw2", constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
-  f(region_period_idx, model = "iid",
-    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
-  f(cell_idx, model = "iid",
-    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1))))
-
-fit_hombres <- inla(formula_h, 
-                    family = familia, 
-                    data = df_hombres, 
-                    E = population,
-                    control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
-
-# Mujeres
-formula_m <- deaths ~
-  f(age_idx, model = "rw1", constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
-  f(region_idx, model = "bym2", graph = g, constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)),
-                 phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
-  f(period_idx, model = "rw2", constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
-  f(region_period_idx, model = "iid",
-    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
-  f(cell_idx, model = "iid",
-    hyper = list(prec = list(prior = SB2.prior(1, 1, 1))))
-
-fit_mujeres <- inla(formula_m,
-                    family = familia, 
-                    data = df_mujeres,
-                    E = population,
-                    control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
-
-# Calcular e0 por separado y unir resultados
-e0_hombres <- calcular_e0_inla_opt(fit_hombres, df_hombres, age_params, Age, nsamples = 10)
-e0_hombres
-e0_mujeres <- calcular_e0_inla_opt(fit_mujeres, df_mujeres, age_params, Age, nsamples = 10)
-e0_mujeres
-e0_sb2_por_sexo_IC <- bind_rows(e0_hombres, e0_mujeres)
-e0_sb2_por_sexo_IC
-
-
-e0_model_plot(e0_sb2_por_sexo_IC, "2020-2024", "purple", 
-              "SB2 por sexo: Hombres SB2(0.5,0.5,1), Mujeres SB2(1,1,1)")
-
-data.frame(
-  modelo = c("Hombres SB2(0.5,0.5,1)", "Mujeres SB2(1,1,1)"),
-  DIC    = c(fit_hombres$dic$dic, fit_mujeres$dic$dic),
-  WAIC   = c(fit_hombres$waic$waic, fit_mujeres$waic$waic),
-  p_eff  = c(fit_hombres$dic$p.eff, fit_mujeres$dic$p.eff)
-)
+# #Resultado de muestras para la familia Poisson sb2(1,1,10)
+# resultado_ambos_poisson <- modelo_completo(
+#   tabla_df   = "ambos",  
+#   familia    = "poisson", 
+#   model_age  = "rw2",     #Mejora de RW1 a RW2
+#   par_p_age  = 1,
+#   par_q_age  = 1,
+#   par_b_age  = 10,
+#   model_reg  = "bym2",
+#   par_p_reg  = 1,
+#   par_q_reg  = 1,
+#   par_b_reg  = 10,
+#   model_per  = "rw2",
+#   par_p_per  = 1,
+#   par_q_per  = 1,
+#   par_b_per  = 10,
+#   model_s_t  = "iid",
+#   par_p_s_t  = 1,
+#   par_q_s_t  = 1,
+#   par_b_s_t  = 100,
+#   model_cel  = "iid",
+#   par_p_cel  = 1,
+#   par_q_cel  = 1,
+#   par_b_cel  = 10,
+#   nsamples   = 100
+# )
+# 
+# # Todos los resultados de "resultados_ambos_nbinomial"
+# summary(resultado_ambos_nbinomial$fit)                  # summary del fit  
+# View(resultado_ambos_nbinomial$cobertura)               # tabla de cobertura
+# View(resultado_ambos_nbinomial$cobertura_completa)      # tabla de cobertura completa
+# View(resultado_ambos_nbinomial$cobertura_completa_sexo) # tabla de cobertura completa por sexo
+# View(resultado_ambos_nbinomial$modelo_final_con)        # tabla de vida e0_observado, e0_estimado e IC
+# View(resultado_ambos_nbinomial$e0_resumen)              # tabla de e0 por region-periodo-sexo OJO: (incluye PR)
+# View(resultado_ambos_nbinomial$tablas_vida)             # tablas de vida completas (Age, nMx, nqx, lx, ndx, nLx, Tx, ex) OJO: (incluye PR)
+# resultado_ambos_nbinomial$archivos$metadatos            # parámetros del modelo
+# resultado_ambos_nbinomial$graficas[["2020-2024"]]       # gráfica de IC para un período
+# 
+# # Visualizando coeficientes del fit de "resultados_ambos_nbinomial"
+# resultado_ambos_nbinomial$fit$summary.fixed
+# resultado_ambos_nbinomial$fit$summary.hyperpar
+# resultado_ambos_nbinomial$fit$summary.random
+# resultado_ambos_nbinomial$fit$summary.fitted.values
+# resultado_ambos_nbinomial$fit$dic$dic
+# resultado_ambos_nbinomial$fit$waic$waic
+# resultado_ambos_nbinomial$fit$mlik
+# resultado_ambos_nbinomial$fit$cpu.used
+# resultado_ambos_nbinomial$fit$.args$data
+# 
+# # Todos los resultados de "resultados_ambos_poisson"
+# summary(resultado_ambos_poisson$fit)                  # summary del fit  
+# View(resultado_ambos_poisson$cobertura)               # tabla de cobertura
+# View(resultado_ambos_poisson$cobertura_completa)      # tabla de cobertura completa
+# View(resultado_ambos_poisson$cobertura_completa_sexo) # tabla de cobertura completa por sexo
+# View(resultado_ambos_poisson$modelo_final_con)        # tabla de vida e0_observado, e0_estimado e IC
+# View(resultado_ambos_poisson$e0_resumen)              # tabla de e0 por region-periodo-sexo OJO: (incluye PR)
+# View(resultado_ambos_poisson$tablas_vida)             # tablas de vida completas (Age, nMx, nqx, lx, ndx, nLx, Tx, ex) OJO: (incluye PR)
+# resultado_ambos_poisson$archivos$metadatos            # parámetros del modelo
+# resultado_ambos_poisson$graficas[["2020-2024"]]       # gráfica de IC para un período
+# 
+# # Visualizando coeficientes del fit de "resultados_ambos_poisson"
+# resultado_ambos_poisson$fit$summary.fixed
+# resultado_ambos_poisson$fit$summary.hyperpar
+# resultado_ambos_poisson$fit$summary.random
+# resultado_ambos_poisson$fit$summary.fitted.values
+# resultado_ambos_poisson$fit$dic$dic
+# resultado_ambos_poisson$fit$waic$waic
+# resultado_ambos_poisson$fit$mlik
+# resultado_ambos_poisson$fit$cpu.used
+# resultado_ambos_poisson$fit$.args$data
+# 
+# 
+# ################################################################################
+# #e0_para cada sexo por separado:
+# 
+# # Hombres
+# formula_h <- deaths ~
+#   f(age_idx, model = "rw1", constr = TRUE,
+#     hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
+#   f(region_idx, model = "bym2", graph = g, constr = TRUE,
+#     hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)),
+#                  phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+#   f(period_idx, model = "rw2", constr = TRUE,
+#     hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
+#   f(region_period_idx, model = "iid",
+#     hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
+#   f(cell_idx, model = "iid",
+#     hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1))))
+# 
+# fit_hombres <- inla(formula_h, 
+#                     family = familia, 
+#                     data = df_hombres, 
+#                     E = population,
+#                     control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
+# 
+# # Mujeres
+# formula_m <- deaths ~
+#   f(age_idx, model = "rw1", constr = TRUE,
+#     hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
+#   f(region_idx, model = "bym2", graph = g, constr = TRUE,
+#     hyper = list(prec = list(prior = SB2.prior(1, 1, 1)),
+#                  phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+#   f(period_idx, model = "rw2", constr = TRUE,
+#     hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
+#   f(region_period_idx, model = "iid",
+#     hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
+#   f(cell_idx, model = "iid",
+#     hyper = list(prec = list(prior = SB2.prior(1, 1, 1))))
+# 
+# fit_mujeres <- inla(formula_m,
+#                     family = familia, 
+#                     data = df_mujeres,
+#                     E = population,
+#                     control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
+# 
+# # Calcular e0 por separado y unir resultados
+# e0_hombres <- calcular_e0_inla_opt(fit_hombres, df_hombres, age_params, Age, nsamples = 10)
+# e0_hombres
+# e0_mujeres <- calcular_e0_inla_opt(fit_mujeres, df_mujeres, age_params, Age, nsamples = 10)
+# e0_mujeres
+# e0_sb2_por_sexo_IC <- bind_rows(e0_hombres, e0_mujeres)
+# e0_sb2_por_sexo_IC
+# 
+# 
+# e0_model_plot(e0_sb2_por_sexo_IC, "2020-2024", "purple", 
+#               "SB2 por sexo: Hombres SB2(0.5,0.5,1), Mujeres SB2(1,1,1)")
+# 
+# data.frame(
+#   modelo = c("Hombres SB2(0.5,0.5,1)", "Mujeres SB2(1,1,1)"),
+#   DIC    = c(fit_hombres$dic$dic, fit_mujeres$dic$dic),
+#   WAIC   = c(fit_hombres$waic$waic, fit_mujeres$waic$waic),
+#   p_eff  = c(fit_hombres$dic$p.eff, fit_mujeres$dic$p.eff)
+# )
