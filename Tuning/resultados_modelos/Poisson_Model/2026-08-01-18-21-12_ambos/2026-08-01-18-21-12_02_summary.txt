@@ -1,0 +1,114 @@
+Time used:
+    Pre = 0.517, Running = 6.33, Post = 0.959, Total = 7.81 
+Fixed effects:
+                               mean     sd
+(Intercept)                  -5.576  7.454
+factor(sex)1:period1980-1984  0.205 14.004
+factor(sex)2:period1980-1984 -0.329 14.004
+factor(sex)1:period1985-1989  0.290 11.361
+factor(sex)2:period1985-1989 -0.299 11.361
+factor(sex)1:period1990-1994  0.390  9.492
+factor(sex)2:period1990-1994 -0.263  9.492
+factor(sex)1:period1995-1999  0.426  8.384
+factor(sex)2:period1995-1999 -0.228  8.384
+factor(sex)1:period2000-2004  0.316  8.018
+factor(sex)2:period2000-2004 -0.313  8.018
+factor(sex)1:period2005-2009  0.319  8.384
+factor(sex)2:period2005-2009 -0.323  8.384
+factor(sex)1:period2010-2014  0.288  9.492
+factor(sex)2:period2010-2014 -0.353  9.492
+factor(sex)1:period2015-2019  0.256 11.361
+factor(sex)2:period2015-2019 -0.403 11.361
+factor(sex)1:period2020-2024  0.358 14.004
+factor(sex)2:period2020-2024 -0.326 14.004
+                             0.025quant 0.5quant
+(Intercept)                     -20.191   -5.576
+factor(sex)1:period1980-1984    -27.268    0.205
+factor(sex)2:period1980-1984    -27.802   -0.329
+factor(sex)1:period1985-1989    -21.989    0.290
+factor(sex)2:period1985-1989    -22.577   -0.299
+factor(sex)1:period1990-1994    -18.225    0.390
+factor(sex)2:period1990-1994    -18.877   -0.263
+factor(sex)1:period1995-1999    -16.029    0.426
+factor(sex)2:period1995-1999    -16.683   -0.228
+factor(sex)1:period2000-2004    -15.432    0.316
+factor(sex)2:period2000-2004    -16.061   -0.313
+factor(sex)1:period2005-2009    -16.135    0.319
+factor(sex)2:period2005-2009    -16.778   -0.323
+factor(sex)1:period2010-2014    -18.326    0.288
+factor(sex)2:period2010-2014    -18.967   -0.353
+factor(sex)1:period2015-2019    -22.023    0.256
+factor(sex)2:period2015-2019    -22.682   -0.403
+factor(sex)1:period2020-2024    -27.115    0.358
+factor(sex)2:period2020-2024    -27.799   -0.326
+                             0.975quant   mode kld
+(Intercept)                       9.040 -5.576   0
+factor(sex)1:period1980-1984     27.679  0.205   0
+factor(sex)2:period1980-1984     27.145 -0.329   0
+factor(sex)1:period1985-1989     22.569  0.290   0
+factor(sex)2:period1985-1989     21.980 -0.299   0
+factor(sex)1:period1990-1994     19.004  0.390   0
+factor(sex)2:period1990-1994     18.352 -0.263   0
+factor(sex)1:period1995-1999     16.880  0.426   0
+factor(sex)2:period1995-1999     16.226 -0.228   0
+factor(sex)1:period2000-2004     16.063  0.316   0
+factor(sex)2:period2000-2004     15.434 -0.313   0
+factor(sex)1:period2005-2009     16.773  0.319   0
+factor(sex)2:period2005-2009     16.131 -0.323   0
+factor(sex)1:period2010-2014     18.903  0.288   0
+factor(sex)2:period2010-2014     18.262 -0.353   0
+factor(sex)1:period2015-2019     22.535  0.256   0
+factor(sex)2:period2015-2019     21.876 -0.403   0
+factor(sex)1:period2020-2024     27.831  0.358   0
+factor(sex)2:period2020-2024     27.148 -0.326   0
+
+Random effects:
+  Name	  Model
+    age_idx RW2 model
+   region_idx BYM2 model
+   period_idx RW2 model
+   region_period_idx IID model
+   cell_idx IID model
+
+Model hyperparameters:
+                                    mean       sd
+Precision for age_idx           1.71e+00 6.87e-01
+Precision for region_idx        9.25e+01 2.71e+01
+Phi for region_idx              8.48e-01 1.58e-01
+Precision for period_idx        1.18e+00 1.62e+01
+Precision for region_period_idx 1.53e+04 1.23e+04
+Precision for cell_idx          1.92e+01 3.38e-01
+                                0.025quant
+Precision for age_idx                0.795
+Precision for region_idx            48.625
+Phi for region_idx                   0.402
+Precision for period_idx             0.000
+Precision for region_period_idx   2480.696
+Precision for cell_idx              18.532
+                                0.5quant
+Precision for age_idx           1.57e+00
+Precision for region_idx        8.93e+01
+Phi for region_idx              9.06e-01
+Precision for period_idx        3.80e-02
+Precision for region_period_idx 1.20e+04
+Precision for cell_idx          1.92e+01
+                                0.975quant    mode
+Precision for age_idx             3.45e+00    1.33
+Precision for region_idx          1.54e+02   83.78
+Phi for region_idx                9.95e-01    0.99
+Precision for period_idx          7.96e+00    0.00
+Precision for region_period_idx   4.78e+04 6686.51
+Precision for cell_idx            1.99e+01   19.21
+
+Deviance Information Criterion (DIC) ...............: 157262.94
+Deviance Information Criterion (DIC, saturated) ....: 42218.12
+Effective number of parameters .....................: 12145.57
+
+Watanabe-Akaike information criterion (WAIC) ...: 156320.39
+Effective number of parameters .................: 8575.63
+
+Marginal log-Likelihood:  -83690.57 
+ is computed 
+Posterior summaries for the linear predictor and the fitted values are computed
+(Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+

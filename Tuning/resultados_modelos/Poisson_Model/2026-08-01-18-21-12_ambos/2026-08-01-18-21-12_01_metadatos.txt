@@ -1,0 +1,1 @@
+gru_ambos_fam_poisson_age_rw2_1_1_10_reg_bym2_1_0.5_10_per_rw2_0.5_0.5_10_s_t_iid_0.5_1_10_cel_iid_1_1_10_sam_100

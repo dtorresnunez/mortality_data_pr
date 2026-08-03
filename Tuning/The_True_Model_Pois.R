@@ -35,7 +35,7 @@ library(parallel)
 
 script_dir         <- this.path::this.dir()
 data_dir           <- file.path(script_dir, "data")
-carpeta_resultados <- file.path(script_dir, "resultados_modelos")
+carpeta_resultados <- file.path(script_dir, "resultados_modelos/Poisson_Model")
 dir.create(carpeta_resultados, recursive = TRUE, showWarnings = FALSE)
 
 # Cargar la base de datos de población y muerte
@@ -423,7 +423,7 @@ modelo_completo <- function(
       hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
     f(cell_idx, model = model_cel,
       hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
-  
+
   # formula_sb2 <- deaths ~
   #   factor(sex):period + #nuevo cambio: efecto de interacción sexo y período
   #   f(age_idx, model = model_age, constr = TRUE,
@@ -435,7 +435,7 @@ modelo_completo <- function(
   #     hyper = list(prec = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
   #   f(region_period_idx, model = model_s_t,
   #     hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t))))
-  
+
   #No descomentar - formula anterior
   # formula_sb2 <- deaths ~
   #   factor(sex) +
@@ -491,7 +491,7 @@ modelo_completo <- function(
                                theta = list(
                                  prior="normal",
                                  param=c(log(10),0.5)  # Genera una previa normal centrada en log(10)
-                                 # c(media, precesión) = c(log(10), 2) \approx (2.30, 2) 
+                                 # c(media, precisión) = c(log(10), 2) \approx (2.30, 2) 
                                )
                              )
                            ),
@@ -797,81 +797,32 @@ modelo_completo <- function(
   
 }
 
-# Resultado de muestras para la familia Binomial Negativa sb2(1,1,10)
-resultado_ambos_nbinomial <- modelo_completo(
-  tabla_df   = "ambos",   
-  familia    = "nbinomial", 
-  model_age  = "rw2",        #Mejora de RW1 a RW2
-  par_p_age  = 1,
-  par_q_age  = 1,
-  par_b_age  = 10,          
-  model_reg  = "bym2",
-  par_p_reg  = 1,
-  par_q_reg  = 1,
-  par_b_reg  = 10,
-  model_per  = "rw2",
-  par_p_per  = 1,
-  par_q_per  = 1,
-  par_b_per  = 10,
-  model_s_t  = "iid",
-  par_p_s_t  = 1,
-  par_q_s_t  = 1,
-  par_b_s_t  = 10,
-  model_cel  = "iid",
-  par_p_cel  = 1,
-  par_q_cel  = 1,
-  par_b_cel  = 10,
-  nsamples   = 100
-)
-
 #Resultado de muestras para la familia Poisson sb2(1,1,10)
 resultado_ambos_poisson <- modelo_completo(
   tabla_df   = "ambos",  
   familia    = "poisson", 
   model_age  = "rw2",     #Mejora de RW1 a RW2
   par_p_age  = 1,
-  par_q_age  = 1,
-  par_b_age  = 10,
-  model_reg  = "bym2",
-  par_p_reg  = 1,
-  par_q_reg  = 1,
-  par_b_reg  = 10,
+  par_q_age  = 0.5,
+  par_b_age  = 25,
   model_per  = "rw2",
-  par_p_per  = 1,
-  par_q_per  = 1,
-  par_b_per  = 10,
+  par_p_per  = 0.5,
+  par_q_per  = 0.5,
+  par_b_per  = 25,
+  model_reg  = "bym2",
+  par_p_reg  = 0.5,
+  par_q_reg  = 0.5,
+  par_b_reg  = 25,
   model_s_t  = "iid",
-  par_p_s_t  = 1,
-  par_q_s_t  = 1,
-  par_b_s_t  = 10,
+  par_p_s_t  = 0.5,
+  par_q_s_t  = 0.5,
+  par_b_s_t  = 25,
   model_cel  = "iid",
   par_p_cel  = 1,
   par_q_cel  = 1,
-  par_b_cel  = 10,
+  par_b_cel  = 25,
   nsamples   = 100
 )
-
-# Todos los resultados de "resultados_ambos_nbinomial"
-summary(resultado_ambos_nbinomial$fit)                  # summary del fit  
-View(resultado_ambos_nbinomial$cobertura)               # tabla de cobertura
-View(resultado_ambos_nbinomial$cobertura_completa)      # tabla de cobertura completa
-View(resultado_ambos_nbinomial$cobertura_completa_sexo) # tabla de cobertura completa por sexo
-View(resultado_ambos_nbinomial$modelo_final_con)        # tabla de vida e0_observado, e0_estimado e IC
-View(resultado_ambos_nbinomial$e0_resumen)              # tabla de e0 por region-periodo-sexo OJO: (incluye PR)
-View(resultado_ambos_nbinomial$tablas_vida)             # tablas de vida completas (Age, nMx, nqx, lx, ndx, nLx, Tx, ex) OJO: (incluye PR)
-resultado_ambos_nbinomial$archivos$metadatos            # parámetros del modelo
-resultado_ambos_nbinomial$graficas[["2020-2024"]]       # gráfica de IC para un período
-
-# Visualizando coeficientes del fit de "resultados_ambos_nbinomial"
-resultado_ambos_nbinomial$fit$summary.fixed
-resultado_ambos_nbinomial$fit$summary.hyperpar
-resultado_ambos_nbinomial$fit$summary.random
-resultado_ambos_nbinomial$fit$summary.fitted.values
-resultado_ambos_nbinomial$fit$dic$dic
-resultado_ambos_nbinomial$fit$waic$waic
-resultado_ambos_nbinomial$fit$mlik
-resultado_ambos_nbinomial$fit$cpu.used
-resultado_ambos_nbinomial$fit$.args$data
 
 # Todos los resultados de "resultados_ambos_poisson"
 summary(resultado_ambos_poisson$fit)                  # summary del fit  
@@ -896,64 +847,3 @@ resultado_ambos_poisson$fit$cpu.used
 resultado_ambos_poisson$fit$.args$data
 
 
-################################################################################
-#e0_para cada sexo por separado:
-
-# Hombres
-formula_h <- deaths ~
-  f(age_idx, model = "rw1", constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
-  f(region_idx, model = "bym2", graph = g, constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)),
-                 phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
-  f(period_idx, model = "rw2", constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
-  f(region_period_idx, model = "iid",
-    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1)))) +
-  f(cell_idx, model = "iid",
-    hyper = list(prec = list(prior = SB2.prior(0.5, 0.5, 1))))
-
-fit_hombres <- inla(formula_h, 
-                    family = familia, 
-                    data = df_hombres, 
-                    E = population,
-                    control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
-
-# Mujeres
-formula_m <- deaths ~
-  f(age_idx, model = "rw1", constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
-  f(region_idx, model = "bym2", graph = g, constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)),
-                 phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
-  f(period_idx, model = "rw2", constr = TRUE,
-    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
-  f(region_period_idx, model = "iid",
-    hyper = list(prec = list(prior = SB2.prior(1, 1, 1)))) +
-  f(cell_idx, model = "iid",
-    hyper = list(prec = list(prior = SB2.prior(1, 1, 1))))
-
-fit_mujeres <- inla(formula_m,
-                    family = familia, 
-                    data = df_mujeres,
-                    E = population,
-                    control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
-
-# Calcular e0 por separado y unir resultados
-e0_hombres <- calcular_e0_inla_opt(fit_hombres, df_hombres, age_params, Age, nsamples = 10)
-e0_hombres
-e0_mujeres <- calcular_e0_inla_opt(fit_mujeres, df_mujeres, age_params, Age, nsamples = 10)
-e0_mujeres
-e0_sb2_por_sexo_IC <- bind_rows(e0_hombres, e0_mujeres)
-e0_sb2_por_sexo_IC
-
-
-e0_model_plot(e0_sb2_por_sexo_IC, "2020-2024", "purple", 
-              "SB2 por sexo: Hombres SB2(0.5,0.5,1), Mujeres SB2(1,1,1)")
-
-data.frame(
-  modelo = c("Hombres SB2(0.5,0.5,1)", "Mujeres SB2(1,1,1)"),
-  DIC    = c(fit_hombres$dic$dic, fit_mujeres$dic$dic),
-  WAIC   = c(fit_hombres$waic$waic, fit_mujeres$waic$waic),
-  p_eff  = c(fit_hombres$dic$p.eff, fit_mujeres$dic$p.eff)
-)
