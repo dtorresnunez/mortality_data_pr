@@ -33,9 +33,14 @@ library(readxl)
 library(readr)
 library(parallel)
 
+# script_dir         <- this.path::this.dir()
+# data_dir           <- file.path(script_dir, "data")
+# carpeta_resultados <- file.path(script_dir, "resultados_modelos")
+# dir.create(carpeta_resultados, recursive = TRUE, showWarnings = FALSE)
+
 script_dir         <- this.path::this.dir()
 data_dir           <- file.path(script_dir, "data")
-carpeta_resultados <- file.path(script_dir, "resultados_modelos")
+carpeta_resultados <- file.path(script_dir, "resultados_modelos/NBinom_Model")
 dir.create(carpeta_resultados, recursive = TRUE, showWarnings = FALSE)
 
 # Cargar la base de datos de población y muerte
