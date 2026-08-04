@@ -803,25 +803,25 @@ resultado_ambos_poisson <- modelo_completo(
   familia    = "poisson", 
   model_age  = "rw2",     #Mejora de RW1 a RW2
   par_p_age  = 1,
-  par_q_age  = 0.5,
-  par_b_age  = 25,
+  par_q_age  = 1,
+  par_b_age  = 0.001,
   model_per  = "rw2",
-  par_p_per  = 0.5,
-  par_q_per  = 0.5,
-  par_b_per  = 25,
+  par_p_per  = 1,
+  par_q_per  = 1,
+  par_b_per  = 0.001,
   model_reg  = "bym2",
-  par_p_reg  = 0.5,
-  par_q_reg  = 0.5,
-  par_b_reg  = 25,
+  par_p_reg  = 1,
+  par_q_reg  = 1,
+  par_b_reg  = 0.001,
   model_s_t  = "iid",
-  par_p_s_t  = 0.5,
-  par_q_s_t  = 0.5,
-  par_b_s_t  = 25,
+  par_p_s_t  = 1,
+  par_q_s_t  = 1,
+  par_b_s_t  = 0.001,
   model_cel  = "iid",
   par_p_cel  = 1,
   par_q_cel  = 1,
-  par_b_cel  = 25,
-  nsamples   = 100
+  par_b_cel  = 0.001,
+  nsamples   = 1000
 )
 
 # Todos los resultados de "resultados_ambos_poisson"
@@ -845,5 +845,4 @@ resultado_ambos_poisson$fit$waic$waic
 resultado_ambos_poisson$fit$mlik
 resultado_ambos_poisson$fit$cpu.used
 resultado_ambos_poisson$fit$.args$data
-
 
