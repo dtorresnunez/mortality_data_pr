@@ -809,24 +809,24 @@ resultado_ambos_nbinomial <- modelo_completo(
   model_age  = "rw2",        #Mejora de RW1 a RW2
   par_p_age  = 1,
   par_q_age  = 1,
-  par_b_age  = 100,          
+  par_b_age  = 0.05,          
   model_reg  = "bym2",
   par_p_reg  = 1,
   par_q_reg  = 1,
-  par_b_reg  = 100,
+  par_b_reg  = 0.05,
   model_per  = "rw2",
   par_p_per  = 1,
   par_q_per  = 1,
-  par_b_per  = 100,
+  par_b_per  = 0.05,
   model_s_t  = "iid",
   par_p_s_t  = 1,
   par_q_s_t  = 1,
-  par_b_s_t  = 100,
+  par_b_s_t  = 0.05,
   model_cel  = "iid",
   par_p_cel  = 1,
   par_q_cel  = 1,
-  par_b_cel  = 100,
-  nsamples   = 1000
+  par_b_cel  = 0.05,
+  nsamples   = 100
 )
 
 # #Resultado de muestras para la familia Poisson sb2(1,1,10)

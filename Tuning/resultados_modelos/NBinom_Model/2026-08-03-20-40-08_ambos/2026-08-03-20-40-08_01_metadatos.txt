@@ -1,0 +1,1 @@
+gru_ambos_fam_nbinomial_hyp_2.303_0.5_age_rw2_0.5_0.5_1_reg_bym2_0.5_0.5_1_per_rw2_0.5_0.5_1_s_t_iid_0.5_0.5_1_cel_iid_0.5_0.5_1_sam_1000
