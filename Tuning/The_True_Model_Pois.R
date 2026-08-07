@@ -35,7 +35,7 @@ library(parallel)
 
 script_dir         <- this.path::this.dir()
 data_dir           <- file.path(script_dir, "data")
-carpeta_resultados <- file.path(script_dir, "resultados_modelos/Poisson_Model")
+carpeta_resultados <- file.path(script_dir, "resultados_modelos/MortyTuning")
 dir.create(carpeta_resultados, recursive = TRUE, showWarnings = FALSE)
 
 # Cargar la base de datos de población y muerte
@@ -68,7 +68,7 @@ age_params <- tibble(
 # Convertir la matriz de adyacencia en una matriz para INLA
 g          <- INLA::inla.read.graph(Amat)
 
-Definir la previa
+#Definir la previa
 SB2.prior <- function(p = 1, q = 1, b = 1){
   sprintf(
     "expression:
@@ -85,7 +85,7 @@ SB2.prior <- function(p = 1, q = 1, b = 1){
     p, q, b
   )
 }
-s
+
 # Ejecutar el modelo INLA. Funciona perfecto para Mac
 calcular_e0_inla     <- function(modelo_inla, df, age_params, Age, nsamples = 1000) {
   datos_directo <- df %>%
@@ -409,20 +409,27 @@ modelo_completo <- function(
   )
   
   # Definir la fórmula para INLA
-
+  
   formula_sb2 <- deaths ~
-    factor(sex):period + #nuevo cambio: efecto de interacción sexo y período
-    f(age_idx, model = model_age, constr = TRUE,
-      hyper = list(theta = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
-    f(region_idx, model = model_reg, graph = g, constr = TRUE,
-      hyper = list(theta = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
-                   phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
-    f(period_idx, model = model_per, constr = TRUE,
-      hyper = list(theta = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
-    f(region_period_idx, model = model_s_t,
-      hyper = list(theta = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
+    factor(sex):period +
     f(cell_idx, model = model_cel,
       hyper = list(theta = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
+  
+  
+  # 07/09/2026
+  # formula_sb2 <- deaths ~
+  #   factor(sex):period + #nuevo cambio: efecto de interacción sexo y período
+  #   f(age_idx, model = model_age, constr = TRUE,
+  #     hyper = list(theta = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
+  #   f(region_idx, model = model_reg, graph = g, constr = TRUE,
+  #     hyper = list(theta = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
+  #                  phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+  #   f(period_idx, model = model_per, constr = TRUE,
+  #     hyper = list(theta = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
+  #   f(region_period_idx, model = model_s_t,
+  #     hyper = list(theta = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
+  #   f(cell_idx, model = model_cel,
+  #     hyper = list(theta = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
   
   # formula_sb2 <- deaths ~
   #   factor(sex):period + #nuevo cambio: efecto de interacción sexo y período
@@ -859,4 +866,5 @@ resultado_ambos_poisson$fit$waic$waic
 resultado_ambos_poisson$fit$mlik
 resultado_ambos_poisson$fit$cpu.used
 resultado_ambos_poisson$fit$.args$data
+
 
