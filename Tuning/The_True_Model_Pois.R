@@ -68,7 +68,7 @@ age_params <- tibble(
 # Convertir la matriz de adyacencia en una matriz para INLA
 g          <- INLA::inla.read.graph(Amat)
 
-# Definir la previa
+Definir la previa
 SB2.prior <- function(p = 1, q = 1, b = 1){
   sprintf(
     "expression:
@@ -85,7 +85,7 @@ SB2.prior <- function(p = 1, q = 1, b = 1){
     p, q, b
   )
 }
-
+s
 # Ejecutar el modelo INLA. Funciona perfecto para Mac
 calcular_e0_inla     <- function(modelo_inla, df, age_params, Age, nsamples = 1000) {
   datos_directo <- df %>%
@@ -409,20 +409,34 @@ modelo_completo <- function(
   )
   
   # Definir la fórmula para INLA
-  
+
   formula_sb2 <- deaths ~
     factor(sex):period + #nuevo cambio: efecto de interacción sexo y período
     f(age_idx, model = model_age, constr = TRUE,
-      hyper = list(prec = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
+      hyper = list(theta = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
     f(region_idx, model = model_reg, graph = g, constr = TRUE,
-      hyper = list(prec = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
+      hyper = list(theta = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
                    phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
     f(period_idx, model = model_per, constr = TRUE,
-      hyper = list(prec = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
+      hyper = list(theta = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
     f(region_period_idx, model = model_s_t,
-      hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
+      hyper = list(theta = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
     f(cell_idx, model = model_cel,
-      hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
+      hyper = list(theta = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
+  
+  # formula_sb2 <- deaths ~
+  #   factor(sex):period + #nuevo cambio: efecto de interacción sexo y período
+  #   f(age_idx, model = model_age, constr = TRUE,
+  #     hyper = list(prec = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
+  #   f(region_idx, model = model_reg, graph = g, constr = TRUE,
+  #     hyper = list(prec = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
+  #                  phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+  #   f(period_idx, model = model_per, constr = TRUE,
+  #     hyper = list(prec = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
+  #   f(region_period_idx, model = model_s_t,
+  #     hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
+  #   f(cell_idx, model = model_cel,
+  #     hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
 
   # formula_sb2 <- deaths ~
   #   factor(sex):period + #nuevo cambio: efecto de interacción sexo y período
@@ -804,23 +818,23 @@ resultado_ambos_poisson <- modelo_completo(
   model_age  = "rw2",     #Mejora de RW1 a RW2
   par_p_age  = 1,
   par_q_age  = 1,
-  par_b_age  = 0.001,
+  par_b_age  = 0.05,
   model_per  = "rw2",
   par_p_per  = 1,
   par_q_per  = 1,
-  par_b_per  = 0.001,
+  par_b_per  = 0.05,
   model_reg  = "bym2",
   par_p_reg  = 1,
   par_q_reg  = 1,
-  par_b_reg  = 0.001,
+  par_b_reg  = 0.05,
   model_s_t  = "iid",
   par_p_s_t  = 1,
   par_q_s_t  = 1,
-  par_b_s_t  = 0.001,
+  par_b_s_t  = 0.05,
   model_cel  = "iid",
   par_p_cel  = 1,
   par_q_cel  = 1,
-  par_b_cel  = 0.001,
+  par_b_cel  = 0.05,
   nsamples   = 1000
 )
 
