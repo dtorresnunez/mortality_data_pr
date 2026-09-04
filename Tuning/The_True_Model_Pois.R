@@ -47,21 +47,21 @@ Amat       <- as.matrix(read.csv(file.path(data_dir, "adjacency_matrix.csv"),
                                  check.names = FALSE))
 
 # Parámetros quinquenales y grupos de edad 
-Age        <- c(0, 1, seq(5, 85, by = 5))
+Age        <- c(0, 1, seq(5, 100, by = 5))
 ages       <- c(
   "0", "01-04","05-09", "10-14", "15-19", "20-24",
   "25-29", "30-34", "35-39", "40-44", "45-49",
   "50-54", "55-59", "60-64", "65-69", "70-74",
-  "75-79", "80-84", "85+"
+  "75-79", "80-84", "85-89", "90-94","95-99", "100+"
 )
 age_params <- tibble(
   agegroup = ages,
-  n_interval = c(1, 4, rep(5, 16), NA),
+  n_interval = c(1, 4, rep(5, 19), NA),
   ax = c(
     0.15, 1.5, 2.5, 2.5, 2.5,
     2.5, 2.5, 2.5, 2.5, 2.5,
     2.5, 2.5, 2.5, 2.5, 2.5,
-    2.5, 2.5, 2.5, NA
+    2.5, 2.5, 2.5,2.5,2.5, 2.5, NA
   )
 )
 
@@ -696,13 +696,12 @@ modelo_completo <- function(
     }
   }
   e0_resumen <- e0_resumen_sb2 %>% arrange(region, period, sex)
-  
-  ages18    <- c(paste(seq(0, 80, 5), seq(4, 84, 5), sep = "-"), "85+")
-  map_age18 <- setNames(c("0-4", "0-4", ages18[-1]), ages)
+  ages22    <- c(paste(seq(0, 95, 5), seq(4, 99, 5), sep = "-"), "100+") #ages18    <- c(paste(seq(0, 80, 5), seq(4, 84, 5), sep = "-"), "85+")
+  map_age22 <- setNames(c("0-4", "0-4", ages22[-1]), ages)
   anios     <- as.character(seq(1980, 2020, by = 5))
   
   mx18 <- pred_sb2 %>%
-    mutate(age = unname(map_age18[agegroup])) %>%
+    mutate(age = unname(map_age22[agegroup])) %>%
     group_by(region, period, sex, age) %>%
     summarise(mx = sum(mx * population) / sum(population), .groups = "drop") %>%
     mutate(sex = ifelse(sex == "m", 1L, 2L))
