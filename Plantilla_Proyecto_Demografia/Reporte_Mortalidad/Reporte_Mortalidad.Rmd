@@ -1,0 +1,325 @@
+---
+output:
+  word_document:
+    reference_docx: estilo.docx
+  pdf_document: default
+number-sections: true
+number-depth: 2
+bibliography: references_morty.bib
+csl: apa.csl
+link-citations: true
+---
+
+```{r setup, include=FALSE}
+# ============================================================
+# CONFIGURACIÓN GENERAL
+# ============================================================
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+
+# ============================================================
+# LIBRERÍAS (Agregue aquí todas las librerías que necesite)
+# ============================================================
+suppressPackageStartupMessages({
+library(knitr)
+library(flextable)
+library(equatags)
+})
+```
+
+# Estimación de la mortalidad municipal en Puerto Rico
+
+## Resumen
+
+Este estudio propone una metodología para estimar la mortalidad municipal en Puerto Rico a través de un modelo jerárquico bayesiano con estructura espacio-temporal. Se emplearon datos de defunciones desagregados por municipio, quinquenio, sexo y grupo de edad, correspondientes a la población en riesgo durante cada período. Dado que el número de muertes suele presentar una variabilidad superior a la esperada bajo un supuesto de conteo simple, se adopta una distribución Poisson. Para representar la evolución en el tiempo y a lo largo de los grupos de edad, el modelo incorpora dos procesos de caminata aleatoria, mientras que la dependencia geográfica entre municipios se incluye mediante una especificación tipo BYM2, la cual separa la variación espacialmente estructurada asociada a la proximidad entre municipios vecinos de la heterogeneidad local de cada municipio. Todo el proceso de estimación se lleva a cabo utilizando el paquete INLA en R, lo que permite obtener de forma eficiente las distribuciones posteriores de las tasas de mortalidad específicas por edad. Se explora como alternativa una previa ScaledBeta2, cuya flexibilidad paramétrica y estabilidad computacional permite modular de forma más general el comportamiento de las colas de la distribución sobre la precisión, ofreciendo así un punto de comparación frente a la previa por defecto que ofrece el paquete INLA (previa PC). Con base en estas distribuciones, se deriva la esperanza de vida al nacer para cada combinación de municipio, quinquenio y sexo, acompañada de intervalos de credibilidad del 95%. La validez del modelo se examina contrastando las tasas observadas con las estimadas por cada quinquenio y municipio. De este modo, la metodología permite minimizar el ruido característico de poblaciones pequeñas y ofrecer estimaciones espacial y temporalmente coherentes de la mortalidad en Puerto Rico. 
+
+**Palabras clave:** Mortalidad, Tasa de mortalidad, Modelo jerárquico, Análisis de sensibilidad, paquete INLA, Puerto Rico.
+
+## Introducción
+
+La estimación de la mortalidad a nivel municipal en Puerto Rico está condicionada por un problema estadístico bien documentado en la literatura demográfica y epidemiológica: el problema de áreas pequeñas. Cabe destacar que no existen antecedentes que presenten el estudio a nivel municipal y por tal razón, el objetivo del trabajo es estimar bajo una división administrativa de 78 municipios cuyas poblaciones varían considerablemente en tamaño, además de que un número importante de estas unidades registra pocas defunciones en determinados grupos de edad y períodos de observación, particularmente en las edades donde el riesgo de mortalidad es bajo, como la niñez y la adultez temprana. Cuando el número de eventos observados es reducido, las tasas de mortalidad calculadas de forma directa presentan una varianza muestral elevada. Esta inestabilidad se traduce en series municipales con fluctuaciones abruptas que dificultan tanto la comparación entre municipios como el seguimiento de tendencias temporales dentro de una misma unidad geográfica, debido a que resulta complejo distinguir entre una tendencia genuina y el ruido propio de trabajar con conteos pequeños. Bajo este contexto, el presente reporte tiene como objetivo documentar la metodología desarrollada para la estimación bayesiana espacio-temporal de la mortalidad municipal en Puerto Rico durante el período comprendido entre 1980 y 2024, así como los principales resultados derivados de su aplicación.
+
+En vista de estas limitaciones, los modelos jerárquicos bayesianos con estructura bajo componentes temporales y espaciales constituyen una alternativa metodológica adecuada. Su principio fundamental consiste en incorporar dependencia entre unidades geográficas vecinas y entre períodos consecutivos a través de efectos latentes no observados directamente en los datos, pero estimados como parte del proceso de inferencia. Estos efectos latentes, asociados a la edad, al período y a la localización espacial, capturan patrones subyacentes de variación que permiten que la estimación de un municipio se beneficie de la información disponible en municipios cercanos y en períodos adyacentes, sin que ello implique homogeneizar las diferencias reales entre unidades. Por ejemplo, los efectos de edad y período se modelan mediante procesos de caminata aleatoria de segundo orden (RW2) [@riebler2016intuitive], los cuales imponen suavidad entre categorías consecutivas al penalizar cambios abruptos de segunda diferencia, permitiendo así capturar tendencias graduales sin sobreajustar el ruido propio de cada grupo o período. 
+
+Por otro lado, el modelo espacial que formaliza esta estructura, y que se ha utilizado como referencia en este tipo de aplicaciones, es el modelo Besag York Mollié [@besag1991bayesian]. Este modelo descompone la variación espacial en dos componentes latentes: la parte estructurada, que depende de la proximidad geográfica entre municipios mediante una estructura condicional autorregresiva (ICAR), y otra no estructurada, que recoge la heterogeneidad de cada unidad que no se le atribuye a la vecindad espacial. La dificultad de identificar por separado estos dos componentes dentro de la formulación original motivó la reparametrización propuesta por Riebler et al. [@riebler2016intuitive], conocida como Besag York Mollié 2, la cual introduce un parámetro de mezcla que distribuye la varianza total entre ambos componentes, facilitando la especificación de las distribuciones previas correspondientes.
+
+La elección de las distribuciones previas sobre los hiperparámetros de precisión de estos efectos latentes constituye un aspecto que exige particular atención, dado que, en presencia de información muestral limitada, la previa puede ejercer una influencia considerable sobre la distribución posterior. Entre las asignaciones de previas para este tipo de aplicaciones, existe el marco de las distribuciones previas penalizadas por complejidad, propuesto por Simpson et al. [@simpson2017penalising], que responde a este problema mediante un principio de parsimonia: penaliza la divergencia respecto a un modelo base más simple. No obstante, dado que algunos efectos latentes del modelo cuentan con menor cantidad de información disponible que otros, resulta pertinente comparar esta especificación con alternativas como la previa ScaledBeta2, la cual presenta mayor flexibilidad en el comportamiento de colas y estabilidad computacional, además de permitir evaluar la sensibilidad de los resultados frente a la incertidumbre de los hiperparámetros.
+
+Además de las tasas de mortalidad específicas por edad, uno de los indicadores de mayor relevancia demográfica es la esperanza de vida al nacer, cuya construcción sigue los procedimientos clásicos de tablas de vida [@preston2000demography]. La propagación de la incertidumbre desde las tasas específicas por edad, estimadas a partir de los efectos latentes del modelo, hasta la esperanza de vida por cada municipio permite reportar, además de una estimación puntual, un intervalo de credibilidad que refleja el grado de credibilidad asociado a cada estimación, cuyo elemento está generalmente ausente en los estudios demográficos tradicionales.
+
+En conjunto de estos elementos mencionados, conforman la base metodológica sobre la cual se estructura el siguiente reporte. En primer lugar, se describe la estructura de los datos de defunciones y población en riesgo utilizados. Más adelante, se presenta la especificación del modelo, incluyendo los efectos latentes de edad, período y espacio, junto con el análisis de sensibilidad realizado sobre las distintas distribuciones previas consideradas. Posteriormente, se detalla el procedimiento de estimación mediante el paquete `INLA` del programa R [@gomez2020bayesian] para el cálculo de la esperanza de vida al nacer a partir de las distribuciones posteriores. Finalmente, se presentan avances de los resultados obtenidos, evaluados mediante la comparación entre valores observados y estimados, y se discuten sus implicaciones para la comprensión de los patrones espaciales y temporales de la mortalidad municipal en la isla. 
+
+
+## Metodología
+
+### Manejo de datos
+
+Los datos utilizados en este estudio provienen del Registro Demográfico de Puerto Rico bajo Estadísticas Vitales de Puerto Rico [@prdept_vitales] y el Censo de Estados Unidos [@uscensus_popest]. Estas fuentes proveen el conteo de muertes desagregado por municipio de residencia, quinquenio, sexo y grupo de edad. La población en riesgo, utilizada como denominador para el cálculo de las tasas específicas de mortalidad, la cual se obtuvo de estimaciones poblacionales del Censo desagregadas con la misma estructura que las defunciones. Cada observación incluye el número de defunciones, la población expuesta al riesgo y la tasa de mortalidad. Para incorporar la dimensión espacial del modelo, se utilizó un archivo geográfico con los límites municipales de la isla. A partir de estos límites, se construyó una matriz de adyacencia bajo el paquete `SUMMER` [@summermanual], la cual identifica como vecinos a los municipios que comparten frontera, la cual sirve de base para especificar el componente espacial del modelo.
+Finalmente, se asignaron identificadores al municipio, al quinquenio, al sexo y al grupo de edad para su uso dentro de la estructura del modelo, junto con un índice adicional por observación que permite incorporar un efecto aleatorio a nivel de fila. A partir de estas dos fuentes, se construyó una base de datos organizada según cinco dimensiones: 78 municipios, 9 períodos quinquenales comprendidos entre 1980 y 2024, 2 sexos, 19 grupos de edad y un índice de celda, que comprende cada observación. Esta estructura genera un total de 26,676 combinaciones de municipio, período, sexo e índice de observación, cada una asociada a su respectivo vector de defunciones y población en riesgo por grupo de edad, a partir de las cuales se ajusta el modelo para las estimaciones posteriores. 
+
+### Especificación del modelo
+
+Las defunciones observadas se modelan a través de una distribución de Poisson:
+
+$$D_{xrt} \sim \text{Poisson}(\mu_{xrt})$$
+Considerando un grupo de edad $x$, un municipio $r$ y un quinquenio $t$, los términos del modelo se interpretan de la siguiente forma:
+
+* $D_{xrt}$ es el conteo de defunciones registradas.
+* $N_{xrt}$ es la población en riesgo asociada a esa combinación de edad, municipio y período, y actúa como término de exposición (*offset*) dentro del modelo.
+* $m_{xrt}$ es la tasa de mortalidad, obtenida al dividir las defunciones entre la exposición correspondiente.
+
+
+### Estructura del predictor lineal
+
+La relación entre la media esperada de defunciones y la exposición poblacional se expresa como:
+
+$$\ln(\mu_{xrt})=\ln(N_{xrt})+\eta_{xrt}$$
+En esta expresión, $\eta_{xrt}$ corresponde al logaritmo de la tasa de mortalidad ya suavizada por el modelo, particular a cada edad, municipio y quinquenio. De forma equivalente, se puede formular como:
+
+$$\mu_{xrt}=N_{xrt}\times\exp(\eta_{xrt})$$
+
+### Efectos latentes
+
+
+El término $\eta_{xrt}$ se descompone en:
+
+$$\eta_{xrt} = \mu + \alpha_{x} + \beta_{st} + \psi_{r} + \gamma_{t} + \delta_{rt} + \epsilon_{xrts}$$
+
+Cada uno de estos elementos cumple una función distinta dentro del modelo:
+
+* $\mu$ es el intercepto, equivalente al logaritmo de la tasa de mortalidad promedio considerando toda la población y todos los períodos.
+* $\alpha_{x}$ recoge el efecto propio de cada grupo de edad.
+* $\gamma_{t}$ recoge el efecto propio de cada quinquenio.
+* $\psi_{r}$ agrupa el efecto espacial del municipio, formado a su vez por un componente estructurado y otro no estructurado.
+* $\delta_{rt}$ es un efecto aleatorio particular a cada combinación de municipio y quinquenio.
+* $\epsilon_{xrts}$ representa el efecto asociado a la combinación edad-municipio-período-sexo.
+
+##### Efecto de edad
+
+Al efecto de edad se le impone una estructura de caminata aleatoria de primer orden:
+
+$$\alpha_{x} = \alpha_{x-1} + \varepsilon_{x}, \quad \varepsilon_{x} \overset{iid}{\sim} \text{Normal}(0,\sigma_\alpha^{2})$$
+
+De este modo se refleja la forma característica que sigue la mortalidad a lo largo de la edad, dejando que el paso de un grupo quinquenal al siguiente ocurra de manera aleatoria pero acotada.
+
+##### Efecto temporal
+
+Para el efecto temporal se emplea una caminata aleatoria de segundo orden, dado por:
+
+$$\gamma_{t}-2\gamma_{t-1}+\gamma_{t-2} \sim \text{Normal}(0,\sigma_\gamma^{2})$$
+
+Con esta formulación se restringe la curvatura de la trayectoria temporal, de modo que la mortalidad no cambie de forma abrupta entre un quinquenio y el siguiente, sino que su evolución sea gradual.
+
+##### Efecto espacial
+
+El efecto atribuido al municipio combina dos fuentes de variación bajo la especificación BYM2:
+
+
+$$\psi_{r}=
+\begin{pmatrix}
+\frac{1}{\sqrt{\tau_{\psi}}}\left(\sqrt{1-\phi}\,\theta_{r}+\sqrt{\phi}\,\varphi_{r}\right)
+\end{pmatrix}$$
+
+El parámetro $\tau$ representa la precisión marginal, mientras que $\phi$ representa la proporción de la varianza marginal explicada por el efecto espacial estructurado.
+
+Los elementos de esta expresión son:
+
+* $\phi_{r}$: componente estructurado, gobernado por una distribución condicional autorregresiva intrínseca (ICAR) construida a partir de la matriz de adyacencia entre municipios, que refleja la similitud entre unidades geográficamente cercanas. Además, es el parámetro que reparte la varianza total entre ambos componentes, estimado directamente de los datos.
+* $\theta_{r}$: componente no estructurado, distribuido de forma normal e independiente, que da cuenta de particularidades propias de cada municipio ajenas a su ubicación geográfica.
+* $\sigma_{\psi}$: desviación estándar total asociada al efecto espacial conjunto.
+
+##### Interacción espacio-temporal
+
+La variabilidad que no queda explicada por los efectos anteriores se recoge en el término $\delta_{rt}$, definido como:
+
+$$\delta_{rt} \overset{iid}{\sim} \text{Normal}(0,\sigma_\delta^{2})$$
+
+Este efecto opera a nivel de cada celda municipio-quinquenio y captura fluctuaciones propias de esa combinación específica que no dependen de la edad, el municipio o el período por separado.
+
+##### Efecto índice de celda
+
+
+Finalmente, se incorpora un efecto aleatorio independiente para cada combinación de edad, municipio, período y sexo, denotado por $\epsilon_{xrts}$:
+
+$$\epsilon_{xrts} \overset{iid}{\sim} \text{Normal}(0,\sigma_\epsilon^{2})$$
+
+Este término se indexa mediante un identificador único por observación, y absorbe la variabilidad residual particular de cada celda que no queda capturada por los efectos de edad, período, espacio ni por la interacción espacio-temporal. Dado que el modelo distingue 19 grupos de edad, 78 municipios, 9 períodos quinquenales y 2 sexos, este efecto opera sobre un total de 26,676 observaciones.
+
+
+### Ajuste del modelo 
+
+
+Tras el ajuste del modelo, se generaron $1{,}000$ réplicas provenientes de la distribución posterior conjunta. En cada una de ellas se recuperó el valor del predictor lineal correspondiente a toda combinación de grupo de edad, municipio y quinquenio, aplicándose luego la función exponencial para trasladar dicho predictor a la escala original de la tasa de mortalidad:
+
+$$\exp\left(\eta_{xrt}^{(s)}\right), \qquad s = 1, \ldots, 1000$$
+
+### Estimación del modelo
+
+
+El modelo jerárquico bayesiano se ajustó en R mediante el paquete `INLA`, que permite estimar modelos gaussianos latentes complejos utilizando aproximaciones integradas anidadas de Laplace [@gomez2020bayesian]. La variable de respuesta fue el número de defunciones y se utilizó la familia Poisson. La población en riesgo correspondiente a cada municipio, quinquenio y grupo de edad se incorporó como término de exposición mediante el argumento `E`. La especificación del componente temporal mediante una caminata aleatoria de segundo orden sigue el enfoque utilizado en modelos dinámicos. La fórmula del modelo incluyó un intercepto general, un efecto de edad modelado mediante una caminata aleatoria de primer orden, un efecto espacial municipal representado mediante el modelo BYM2, un efecto de quinquenio modelado mediante una caminata aleatoria de segundo orden y un efecto aleatorio independiente para cada combinación de municipio y quinquenio.
+
+Las distribuciones previas ScaledBeta2 se definieron mediante los siguientes parámetros, comunes a cada uno de los efectos:
+
+::: {custom-style="Figura APA"}
+**Tabla 1**
+*Hiperparámetros del modelo bayesiano jerárquico de mortalidad*
+:::
+```{r}
+datos_hiper <- tibble::tibble(
+  Hiperparámetro = c(
+    "\\sigma_\\alpha^2 \\sim \\text{SB2}(1,1,0.05)",
+    "\\sigma_\\psi^2 \\sim \\text{SB2}(1,1,0.05)",
+    "\\phi \\sim \\text{Logit-Beta}(0.5,0.5)",
+    "\\sigma_\\gamma^2 \\sim \\text{SB2}(1,1,0.05)",
+    "\\sigma_\\delta^2 \\sim \\text{SB2}(1,1,0.05)",
+    "\\sigma_\\epsilon^2 \\sim \\text{SB2}(1,1,0.05)"
+  ),
+  Interpretación = c(
+    "Varianza del efecto de edad (RW1)",
+    "Varianza total del efecto espacial BYM2",
+    "Proporción de varianza estructurada en BYM2",
+    "Varianza del efecto de quinquenio (RW2)",
+    "Varianza del efecto IID a nivel municipio-quinquenio",
+    "Varianza del efecto IID a nivel de observación"
+  )
+)
+
+ft <- flextable(datos_hiper) |>
+  set_header_labels(
+    Hiperparámetro = "Hiperparámetro",
+    Interpretación = "Interpretación"
+  ) |>
+  mk_par(j = "Hiperparámetro", value = as_paragraph(as_equation(Hiperparámetro))) |>
+  autofit() |>
+  align(align = "center", part = "all") |>
+  align(j = "Interpretación", align = "left", part = "all") |>
+  font(fontname = "Times New Roman", part = "all")
+
+ft
+```
+::: {custom-style="Nota"}
+*Nota.* Todas las distribuciones previas ScaledBeta2 (SB2) se especificaron con los mismos parámetros de forma y escala. Especificación basada en Ramírez et al. [@perez2017scaled] y Gómez-Rubio [@gomez2020bayesian].
+:::
+
+
+## Resultados
+
+::: {custom-style="Figura APA"}
+**Figura 1**
+
+*Esperanza de vida al nacer, estimada vs. observada, por municipio (1980–1984)*
+:::
+
+```{r, out.width="70%"}
+knitr::include_graphics("1980-1984.jpg")
+```
+
+::: {custom-style="Figura APA"}
+**Figura 2**
+
+*Esperanza de vida al nacer, estimada vs. observada, por municipio (1985–1989)*
+:::
+
+```{r, out.width="70%"}
+knitr::include_graphics("1985-1989.jpg")
+```
+
+::: {custom-style="Figura APA"}
+**Figura 3**
+
+*Esperanza de vida al nacer, estimada vs. observada, por municipio (1990–1994)*
+:::
+
+```{r, out.width="70%"}
+knitr::include_graphics("1990-1994.jpg")
+```
+
+::: {custom-style="Figura APA"}
+**Figura 4**
+
+*Esperanza de vida al nacer, estimada vs. observada, por municipio (1995–1999)*
+:::
+
+```{r, out.width="70%"}
+knitr::include_graphics("1995-1999.jpg")
+```
+
+
+::: {custom-style="Figura APA"}
+**Figura 5**
+
+*Esperanza de vida al nacer, estimada vs. observada, por municipio (2000–2004)*
+:::
+
+```{r, out.width="70%"}
+knitr::include_graphics("2000-2004.jpg")
+```
+
+::: {custom-style="Figura APA"}
+**Figura 6**
+
+*Esperanza de vida al nacer, estimada vs. observada, por municipio (2005–2009)*
+:::
+
+```{r, out.width="70%"}
+knitr::include_graphics("2005-2009.jpg")
+```
+
+
+::: {custom-style="Figura APA"}
+**Figura 7**
+
+*Esperanza de vida al nacer, estimada vs. observada, por municipio (2010–2014)*
+:::
+```{r, out.width="70%"}
+knitr::include_graphics("2010-2014.jpg")
+```
+
+::: {custom-style="Figura APA"}
+**Figura 8**
+
+*Esperanza de vida al nacer, estimada vs. observada, por municipio (2015–2019)*
+:::
+
+```{r, out.width="70%"}
+knitr::include_graphics("2015-2019.jpg")
+```
+
+::: {custom-style="Figura APA"}
+**Figura 9**
+
+*Esperanza de vida al nacer, estimada vs. observada, por municipio (2020–2024)*
+:::
+
+
+```{r, out.width="70%"}
+knitr::include_graphics("2020-2024.jpg")
+```
+
+En la gran mayoría de los municipios, para ambos sexos y en los 9 períodos quinquenales, el valor observado se ubica dentro del intervalo de credibilidad del 95%, categoría etiquetada como estimación adecuada, lo que confirma de manera consistente el buen desempeño global reportado anteriormente en las métricas de cobertura.
+
+Los municipios que se apartan de esta categoría, es decir, aquellos cuyo valor observado cae fuera del intervalo, tienden a repetirse a lo largo de distintos quinquenios y corresponden a unidades territoriales de baja población. Culebra es el caso más recurrente, ya que aparece como valor atípico en prácticamente todos los quinquenios analizados, tanto en hombres como en mujeres, y en varios períodos, como 1990 a 1994 y 2005 a 2009, presenta además el intervalo de credibilidad de mayor amplitud entre todos los municipios, reflejo del reducido número de defunciones que registra por grupo de edad y período. Un patrón similar, aunque menos marcado, se observa en Vieques, Maricao y Las Marías, municipios que también están entre los de mayor discrepancia o mayor incertidumbre.
+
+Similarmente, se aprecia que no existe un sesgo hacia la sobreestimación o la subestimación del modelo. En quinquenios como 1980 a 1984 y 1990 a 1994, tanto en hombres como en mujeres, aparecen simultáneamente municipios cuyo valor estimado supera al observado y municipios donde ocurre lo contrario, lo cual es consistente con la naturaleza del efecto de suavización espacial. Es decir, el modelo acerca cada estimación municipal hacia el patrón compartido con sus vecinos y con el período, sin favorecer una dirección particular de ajuste.
+
+Un patrón temporal que vale la pena destacar es la reducción progresiva en el número de municipios señalados como atípicos hacia los quinquenios más recientes. En los períodos de 1995 a 1999 en adelante, la proporción de municipios que caen fuera del intervalo de credibilidad disminuye visiblemente respecto a los primeros quinquenios, y para 2015 a 2019 y 2020 a 2024, el número de casos atípicos por sexo se reduce a los municipios pequeños, entre ellos nuevamente Culebra, junto con Isabela, Barceloneta y San Germán. Esta reducción es coherente con una mayor estabilidad de los datos de defunciones en períodos más recientes, posiblemente asociada a mejoras en el recogido de los registros vitales o a cambios en el tamaño relativo de las poblaciones municipales.
+
+En conjunto, estos resultados gráficos refuerzan la conclusión de que el modelo captura adecuadamente la heterogeneidad municipal, mientras que reserva su mayor efecto de suavización para aquellos municipios donde hay pocos datos, lo que es un comportamiento esperado en la estimación de esperanza de vida para áreas pequeñas.
+
+
+## Discusión
+
+El estudio presenta limitaciones que deben reconocerse. En primer lugar, la validez de las estimaciones depende de la exhaustividad del Registro Demográfico de Puerto Rico y de la precisión de las estimaciones poblacionales. Errores de clasificación municipal o de medición de la exposición podrían trasladarse tanto a las tasas observadas como a las estimadas. En segundo lugar, la agregación en quinquenios, si bien favorece la estabilidad estadística de las tasas, puede enmascarar fluctuaciones anuales asociadas a eventos particulares. En tercer lugar, el modelo no incorpora covariables socioeconómicas, de acceso a salud o ambientales que permitan explicar sustantivamente el origen de las diferencias espaciales identificadas. Finalmente, la evaluación de desempeño se limitó a la comparación dentro de muestra entre la familia Poisson y Binomial Negativa, sin evaluación predictiva fuera de muestra ni comparación con especificaciones alternativas del componente espacio-temporal.
+
+Bajo la especificación con familia Poisson, se obtuvo una cobertura global de 95.37%, correspondiente a 1,339 de 1,404 combinaciones de municipio, quinquenio y sexo, con un desempeño diverso por sexo: 93.02% en hombres, equivalente a 653 de 702 casos, y 97.72% en mujeres, equivalente a 686 de 702 casos. La especificación con familia Binomial Negativa produjo resultados prácticamente equivalentes, con una cobertura global de 95.30%, correspondiente a 93.16% en hombres y 97.44% en mujeres. Los criterios de información favorecieron al modelo Poisson, con un DIC de 157,259.59 y un WAIC de 156,314.32, frente a un DIC de 159,921.80 y un WAIC de 159,459.56 bajo la familia Binomial Negativa, de tal modo que la inclusión de un parámetro adicional de sobredispersión no representó una mejora sustantiva en el ajuste. Cabe señalar que, esta evaluación se realizó sobre los mismos datos empleados para estimar el modelo, por lo que no constituye una validación externa. De igual forma, para el tamaño de sobredispersión bajo las observaciones dentro de la familia Binomial Negativa resultó en $\alpha = 293$, lo que implica que no hay sobredispersión. Este valor cercano a cero es lo que indica que es condicional a los efectos aleatorios espaciales, temporales, de edad y a nivel de celda, que los conteos de defunciones son consistentes con una distribución Poisson. Similarmente, el componente espacial BYM2 resultó determinante para caracterizar la variabilidad municipal no explicada por edad, sexo y período. La proporción de mezcla espacial se estimó en $\hat\phi \approx 0.516$ bajo la familia Poisson y en $\hat\phi \approx 0.519$ bajo la Binomial Negativa, valores prácticamente idénticos que sugieren que la evidencia de autocorrelación espacial es robusta frente a la elección de la distribución de conteos. Este resultado indica que aproximadamente la mitad de la variabilidad residual entre municipios corresponde a un patrón espacialmente estructurado, mientras que la otra mitad refleja heterogeneidad de cada unidad territorial no asociada con la vecindad geográfica. Entre los factores que podrían explicar esta estructura espacial se encuentran diferencias en disparidades entre zonas urbanas y rurales. Sin embargo, dado que la base de datos utilizada no incorpora covariables de este tipo, el modelo ajustado no permite discriminar cuál de estos mecanismos predomina.
+
+La comparación entre los valores estimados y observados de la esperanza de vida al nacer, desagregada por quinquenio y sexo, evidencia el efecto de suavización característico de los modelos jerárquicos bayesianos. Los municipios de menor tamaño poblacional, entre ellos Culebra, Maricao, Las Marías y Vieques, presentan de forma sistemática los intervalos de credibilidad más amplios y las mayores discrepancias puntuales respecto al valor observado. Al disponer de pocas defunciones por grupo de edad y período, las tasas directas resultan más inestables, y el modelo compensa dicha inestabilidad acercando la estimación hacia el patrón compartido con municipios vecinos y períodos adyacentes. Culebra en particular exhibe de manera recurrente, a lo largo de distintos quinquenios, la mayor amplitud de intervalo y la mayor distancia entre el valor observado y la estimación puntual, comportamiento esperado con simulaciones previas sobre el desempeño de modelos en la estimación de esperanza de vida. Para los municipios de mayor tamaño poblacional, cuyas tasas directas ya presentan estabilidad por contar con un número considerable de defunciones observadas, la diferencia entre el valor estimado y el observado tiende a ser mínima. Su aporte principal se concentra precisamente en las unidades territoriales donde el problema de áreas pequeñas es más severo.
+
+Bajo la misma línea, el modelo jerárquico bayesiano con estructura espacial BYM2 y efectos de caminata aleatoria de segundo orden permitió obtener estimaciones municipales de esperanza de vida al nacer que resultan simultáneamente estables y sensibles a diferencias territoriales. La evidencia de que aproximadamente la mitad de la variabilidad residual municipal responde a estructura espacial confirma que la mortalidad en Puerto Rico conserva una componente geográfica relevante incluso después de ajustar por edad, sexo y período. Este hallazgo tiene implicaciones directas para la planificación territorial de servicios de salud dirigidos a municipios que, por su reducido tamaño poblacional, resultan particularmente vulnerables a la inestabilidad de sus indicadores demográficos. 
+
+Como trabajo a futuro, se pretende evaluar distintas especificaciones de efectos aleatorios residuales para mejorar la cobertura de las tasas de mortalidad sin incrementar excesivamente el número efectivo de parámetros.
+
+## Referencias
