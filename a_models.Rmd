@@ -1,0 +1,433 @@
+---
+title: "Evaluación de Modelos INLA para Balancear Cobertura y p.eff"
+author: ""
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+# Objetivo
+
+El objetivo es evaluar distintas especificaciones de efectos aleatorios residuales para mejorar la cobertura de las tasas de mortalidad sin incrementar excesivamente el número efectivo de parámetros (`p.eff`).
+
+Se consideran:
+
+- 78 regiones
+- 2 sexos
+- 9 períodos
+- 19 grupos de edad
+
+Todas las alternativas parten de un modelo Poisson:
+
+$$
+Y_{rspa}\sim \text{Poisson}(E_{rspa}\lambda_{rspa})
+$$
+
+donde:
+
+- \(r\): región
+- \(s\): sexo
+- \(p\): período
+- \(a\): grupo de edad
+
+y
+
+$$
+\log(\lambda_{rspa})
+=
+\mu+\alpha_a+\beta_p+\gamma_r+\delta_s.
+$$
+
+---
+
+# Modelo 1: Modelo Base
+
+## Fórmula matemática
+
+$$
+\log(\lambda_{rspa})
+=
+\mu+\alpha_a+\beta_p+\gamma_r+\delta_s
+$$
+
+## Interpretación
+
+No existe sobre-dispersión adicional.
+
+Toda la variabilidad debe ser explicada por:
+
+- edad
+- período
+- región
+- sexo
+
+
+# Tabla de complejidad de modelos
+
+| Modelo | Parámetros fijos | Componentes latentes | Hiperparámetros | p.eff esperado |
+|----------|----------:|----------:|----------:|----------:|
+| Sexo + factor(age) | 20 | 0 | 0 | ~20 |
+| Sexo + RW2(edad) | 2 | 19 | 1 | 5-15 |
+| Sexo + RW2(edad) + RW2(periodo) | 2 | 28 | 2 | 10-30 |
+| Sexo + RW2(edad) + RW2(periodo) + IID(región) | 2 | 106 | 3 | 20-60 |
+| Sexo + RW2(edad) + RW2(periodo) + BYM2(región) | 2 | 106 | 4-5 | 30-100 |
+| APC espacial completo | 2 | 106 | 4-6 | 50-150 |
+| APC espacial + interacción edad-período | 2 | 277 | 5-7 | 100-300 |
+| APC espacial + cellidx(iid) | 2 | 26,782 | 6-8 | 100-1000+ |
+| Modelo dominado por cellidx | 2 | 26,782 | 6-8 | >1000 |
+
+
+# Interpretación práctica de p.eff
+
+| p.eff | Interpretación |
+|--------:|----------------|
+| <100 | Muy parsimonioso |
+| 100-300 | Muy razonable |
+| 300-600 | Revisar |
+| 600-1000 | Posible sobreajuste |
+| 1000-2000 | Bastante sospechoso |
+| >2000 | Riesgo elevado de memorizar ruido |
+
+
+### Ventajas
+
+- Menor p.eff.
+- Modelo más parsimonioso.
+
+### Desventajas
+
+- Cobertura potencialmente baja.
+- Puede subestimar incertidumbre.
+
+## Implementación INLA
+
+```r
+formula <- y ~
+  sex +
+  f(age, model = "rw2") +
+  f(period, model = "rw2") +
+  f(region, model = "iid")
+```
+
+---
+
+# Modelo 2: Efecto Aleatorio por Región
+
+## Fórmula matemática
+
+$$
+\log(\lambda_{rspa})
+=
+\mu+\alpha_a+\beta_p+\gamma_r+\delta_s+u_r
+$$
+
+donde
+
+$$
+u_r\sim N(0,\sigma_r^2).
+$$
+
+Número de efectos aleatorios:
+
+$$
+78
+$$
+
+## Interpretación
+
+Todas las observaciones de una misma región comparten la misma desviación residual.
+
+Si
+
+$$
+u_r = 0.20
+$$
+
+entonces todas las tasas de dicha región aumentan aproximadamente un
+
+$$
+e^{0.20}\approx1.22
+$$
+
+es decir, un 22%.
+
+### Ventajas
+
+- Incremento pequeño de complejidad.
+- Captura heterogeneidad regional.
+
+### Desventajas
+
+- No permite diferencias entre sexos ni períodos dentro de una región.
+
+## Implementación INLA
+
+```r
+formula <- y ~
+  sex +
+  f(age, model = "rw2") +
+  f(period, model = "rw2") +
+  f(region, model = "iid") +
+  f(region_resid, model = "iid")
+```
+
+---
+
+# Modelo 3: Efecto Aleatorio Región × Sexo
+
+## Fórmula matemática
+
+$$
+\log(\lambda_{rspa})
+=
+\mu+\alpha_a+\beta_p+\gamma_r+\delta_s+u_{rs}
+$$
+
+con
+
+$$
+u_{rs}\sim N(0,\sigma_{rs}^2).
+$$
+
+Número de efectos:
+
+$$
+78\times2 = 156.
+$$
+
+## Interpretación
+
+Cada combinación región-sexo tiene un residual propio.
+
+Por ejemplo:
+
+$$
+u_{\text{Madrid,Hombre}}
+\neq
+u_{\text{Madrid,Mujer}}.
+$$
+
+Todas las edades y períodos comparten dicho residual dentro del grupo región-sexo.
+
+### Ventajas
+
+- Captura diferencias sistemáticas hombre/mujer por región.
+- p.eff moderado.
+
+### Desventajas
+
+- No modela variaciones temporales específicas.
+
+## Implementación INLA
+
+```r
+data$rs_idx <- as.numeric(
+  interaction(data$region, data$sex)
+)
+```
+
+```r
+formula <- y ~
+  sex +
+  f(age, model = "rw2") +
+  f(period, model = "rw2") +
+  f(region, model = "iid") +
+  f(rs_idx, model = "iid")
+```
+
+---
+
+# Modelo 4: Efecto Aleatorio Región × Período
+
+## Fórmula matemática
+
+$$
+\log(\lambda_{rspa})
+=
+\mu+\alpha_a+\beta_p+\gamma_r+\delta_s+u_{rp}
+$$
+
+con
+
+$$
+u_{rp}\sim N(0,\sigma_{rp}^2).
+$$
+
+Número de efectos:
+
+$$
+78\times9=702.
+$$
+
+## Interpretación
+
+Cada región puede presentar desviaciones diferentes en cada período.
+
+Por ejemplo:
+
+$$
+u_{\text{Madrid,Periodo 1}}
+\neq
+u_{\text{Madrid,Periodo 5}}.
+$$
+
+Todas las edades y ambos sexos comparten el mismo residual dentro de una misma combinación región-período.
+
+### Ventajas
+
+- Captura heterogeneidad temporal regional.
+- Suele absorber gran parte de la variabilidad que captura un `cell_idx`.
+- Buen equilibrio entre cobertura y complejidad.
+
+### Desventajas
+
+- p.eff mayor que Región o Región-Sexo.
+
+## Implementación INLA
+
+```r
+data$rp_idx <- as.numeric(
+  interaction(data$region, data$period)
+)
+```
+
+```r
+formula <- y ~
+  sex +
+  f(age, model = "rw2") +
+  f(period, model = "rw2") +
+  f(region, model = "iid") +
+  f(rp_idx, model = "iid")
+```
+
+---
+
+# Modelo 5: Cell Index Completo
+
+## Fórmula matemática
+
+Definimos:
+
+$$
+c=(r,s,p,a)
+$$
+
+y
+
+$$
+u_c=u_{rspa}.
+$$
+
+El modelo es:
+
+$$
+\log(\lambda_{rspa})
+=
+\mu+\alpha_a+\beta_p+\gamma_r+\delta_s+u_{rspa}.
+$$
+
+con
+
+$$
+u_{rspa}\sim N(0,\sigma^2).
+$$
+
+Número de efectos:
+
+$$
+78\times2\times9\times19
+=
+26676.
+$$
+
+## Interpretación
+
+Cada celda tiene una corrección independiente.
+
+Por ejemplo:
+
+$$
+u_{Madrid,Hombre,Periodo1,50-54}
+$$
+
+es diferente de
+
+$$
+u_{Madrid,Hombre,Periodo1,55-59}.
+$$
+
+### Ventajas
+
+- Máxima flexibilidad.
+- Generalmente mayor cobertura.
+
+### Desventajas
+
+- p.eff muy alto.
+- Riesgo de sobreajuste.
+- Menor interpretabilidad.
+
+## Implementación INLA
+
+```r
+data$cell_idx <- 1:nrow(data)
+```
+
+```r
+formula <- y ~
+  sex +
+  f(age, model = "rw2") +
+  f(period, model = "rw2") +
+  f(region, model = "iid") +
+  f(cell_idx, model = "iid")
+```
+
+---
+
+# Comparación Esperada
+
+| Modelo | Nº Efectos Residuales | Cobertura Esperada | p.eff Esperado |
+|----------|----------:|----------:|----------:|
+| Base | 0 | Baja | Muy bajo |
+| Región | 78 | Moderada | Bajo |
+| Región-Sexo | 156 | Moderada-Alta | Bajo-Moderado |
+| Región-Período | 702 | Alta | Moderado |
+| Cell Index | 26676 | Muy Alta | Muy Alto |
+
+---
+
+# Recomendación Inicial
+
+Dado que el modelo con `cell_idx` ya muestra coberturas cercanas a:
+
+- Hombres: 92%
+- Mujeres: 96%
+
+la estrategia recomendada sería evaluar secuencialmente:
+
+1. Modelo Base
+2. Región
+3. Región-Sexo
+4. Región-Período
+5. Cell Index
+
+registrando para cada modelo:
+
+```r
+res$waic$waic
+res$waic$p.eff
+
+res$dic$dic
+res$dic$p.eff
+```
+
+y la cobertura fuera de muestra.
+
+La hipótesis principal es que el modelo **Región × Período** podría recuperar gran parte de la mejora obtenida con `cell_idx`, pero con un crecimiento mucho menor de `p.eff`.
+
+Hola Nathalie. Para facilitarte la tabla dentro de los modelos que vayas a presentar usa estos.
+No muevas las previas.
+Solo ve haciendo estos ajustes. Fijando las previas a ver si vemos algo. 
+Algunos de ellos ya los tenías.

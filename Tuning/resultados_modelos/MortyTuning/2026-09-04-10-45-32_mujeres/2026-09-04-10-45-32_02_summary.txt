@@ -1,0 +1,33 @@
+Time used:
+    Pre = 0.504, Running = 0.689, Post = 0.065, Total = 1.26 
+Fixed effects:
+              mean    sd 0.025quant 0.5quant 0.975quant   mode kld
+(Intercept) -5.923 0.005     -5.933   -5.923     -5.912 -5.923   0
+
+Random effects:
+  Name	  Model
+    age_idx RW2 model
+   region_idx BYM2 model
+   period_idx RW2 model
+   region_period_idx IID model
+
+Model hyperparameters:
+                                   mean      sd 0.025quant 0.5quant 0.975quant    mode
+Precision for age_idx             2.111   0.694      1.028    2.017      3.729   1.846
+Precision for region_idx        186.131  44.925    110.219  181.921    285.887 174.955
+Phi for region_idx                0.841   0.142      0.461    0.886      0.991   0.978
+Precision for period_idx        230.623 154.185     51.695  192.780    630.061 128.986
+Precision for region_period_idx 959.307 146.389    707.544  946.961   1282.585 920.383
+
+Deviance Information Criterion (DIC) ...............: 73981.22
+Deviance Information Criterion (DIC, saturated) ....: 20801.95
+Effective number of parameters .....................: 291.94
+
+Watanabe-Akaike information criterion (WAIC) ...: 74879.53
+Effective number of parameters .................: 978.19
+
+Marginal log-Likelihood:  -37198.91 
+ is computed 
+Posterior summaries for the linear predictor and the fitted values are computed
+(Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+

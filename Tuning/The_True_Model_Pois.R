@@ -47,21 +47,21 @@ Amat       <- as.matrix(read.csv(file.path(data_dir, "adjacency_matrix.csv"),
                                  check.names = FALSE))
 
 # Parámetros quinquenales y grupos de edad 
-Age        <- c(0, 1, seq(5, 100, by = 5))
+Age        <- c(0, 1, seq(5, 85, by = 5))
 ages       <- c(
   "0", "01-04","05-09", "10-14", "15-19", "20-24",
   "25-29", "30-34", "35-39", "40-44", "45-49",
   "50-54", "55-59", "60-64", "65-69", "70-74",
-  "75-79", "80-84", "85-89", "90-94","95-99", "100+"
+  "75-79", "80-84", "85+"
 )
 age_params <- tibble(
   agegroup = ages,
-  n_interval = c(1, 4, rep(5, 19), NA),
+  n_interval = c(1, 4, rep(5, 16), NA),
   ax = c(
     0.15, 1.5, 2.5, 2.5, 2.5,
     2.5, 2.5, 2.5, 2.5, 2.5,
     2.5, 2.5, 2.5, 2.5, 2.5,
-    2.5, 2.5, 2.5,2.5,2.5, 2.5, NA
+    2.5, 2.5, 2.5, NA
   )
 )
 
@@ -200,7 +200,7 @@ calcular_e0_inla_opt <- function(modelo_inla, df, age_params, Age, nsamples = 10
     arrange(region, period, sex_chr, age_idx) %>%
     group_by(region, period, sex_chr) %>%
     summarise(idx = list(.fila), .groups = "drop") %>%
-    filter(lengths(idx) > 5)              # mismo criterio que el original
+    filter(lengths(idx) == length(Age))            # mismo criterio que el original #nngn 
   
   G           <- nrow(grupos)
   idx_list    <- grupos$idx
@@ -361,11 +361,24 @@ e0_model_plot        <- function(dat, per, col, llh) {
 #                 control.compute = list(config = TRUE, dic = TRUE, waic = TRUE))
 
 # Definición de parámetros iniciales
+
+df$region_idx <- as.numeric(as.factor(df$region_idx))
+df$age_idx <- as.numeric(as.factor(df$age_idx))
+df$region_age_idx <- as.numeric(factor(paste(df$region, df$agegroup, sep = "_")))
 df_ambos   <- df
 df_hombres <- df %>% filter(sex == 1)
 df_mujeres <- df %>% filter(sex == 2)
 familias   <- names(INLA::inla.models()$likelihood)
 modelos    <- names(INLA::inla.models()$latent)
+#04/09/2026
+#df$region_age_idx <- as.numeric(interaction(df$region_idx,df$age_idx,drop = TRUE))
+
+# 1: región × sexo (156):
+#df$cell_idx <- as.numeric(factor(paste(df$region, df$sex, sep = "_")))
+
+# 2: región × sexo × período (1,404):
+#df$cell_idx <- as.numeric(factor(paste(df$region, df$sex, df$period, sep = "_")))
+#Sale error
 
 # Modelo completo. Más adelante está el ejemplo de uso
 modelo_completo <- function(
@@ -387,10 +400,10 @@ modelo_completo <- function(
     par_p_s_t,
     par_q_s_t,
     par_b_s_t,
-    model_cel,
-    par_p_cel,
-    par_q_cel,
-    par_b_cel,
+    # model_cel,
+    # par_p_cel,
+    # par_q_cel,
+    # par_b_cel,
     nsamples,
     guardar    = TRUE)
 {
@@ -403,18 +416,105 @@ modelo_completo <- function(
     "reg", model_reg, par_p_reg, par_q_reg, par_b_reg,
     "per", model_per, par_p_per, par_q_per, par_b_per,
     "s_t", model_s_t, par_p_s_t, par_q_s_t, par_b_s_t,
-    "cel", model_cel, par_p_cel, par_q_cel, par_b_cel,
+    #"cel", model_cel, par_p_cel, par_q_cel, par_b_cel,
     "sam", nsamples,
     sep = "_"
   )
   
-  # Definir la fórmula para INLA
-  
   formula_sb2 <- deaths ~
     factor(sex):period +
-    f(cell_idx, model = model_cel,
-      hyper = list(theta = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
+    f(age_idx,
+      model = model_age,
+      constr = TRUE,
+      hyper = list(
+        theta = list(
+          prior = SB2.prior(
+            par_p_age,
+            par_q_age,
+            par_b_age
+          )
+        )
+      )
+    ) +
+    
+    f(region_idx,
+      model = model_reg,
+      graph = g,
+      constr = TRUE,
+      hyper = list(
+        theta = list(
+          prior = SB2.prior(
+            par_p_reg,
+            par_q_reg,
+            par_b_reg
+          )
+        ),
+        phi = list(
+          prior = "logitbeta",
+          param = c(0.5, 0.5)
+        )
+      )
+    ) +
+    
+    f(period_idx,
+      model = model_per,
+      constr = TRUE,
+      hyper = list(
+        theta = list(
+          prior = SB2.prior(
+            par_p_per,
+            par_q_per,
+            par_b_per
+          )
+        )
+      )
+    ) +
+    
+    f(region_period_idx,
+      model = model_s_t,
+      hyper = list(
+        theta = list(
+          prior = SB2.prior(
+            par_p_s_t,
+            par_q_s_t,
+            par_b_s_t
+          )
+        )
+      )
+    ) +
+    
+    f(region_age_idx,
+      model = "iid",
+      hyper = list(
+        theta = list(
+          prior = SB2.prior(
+            par_p_cel,
+            par_q_cel,
+            par_b_cel
+          )
+        )
+      )
+    )
   
+  
+  
+  
+  
+  formula_sb2 <- deaths ~
+    factor(sex):period + #nuevo cambio: efecto de interacción sexo y período
+    f(age_idx, model = model_age, constr = TRUE,
+      hyper = list(theta = list(prior = SB2.prior(par_p_age, par_q_age, par_b_age)))) +
+    f(region_idx, model = model_reg, graph = g, constr = TRUE,
+      hyper = list(theta = list(prior = SB2.prior(par_p_reg , par_q_reg , par_b_reg)),
+                   phi = list(prior = "logitbeta", param = c(0.5, 0.5)))) +
+    f(period_idx, model = model_per, constr = TRUE,
+      hyper = list(theta = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
+    f(region_period_idx, model = model_s_t,
+      hyper = list(theta = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
+    f(cell_idx, model = "iid",
+      hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
+
+  # 
   
   # 07/09/2026
   # formula_sb2 <- deaths ~
@@ -481,10 +581,10 @@ modelo_completo <- function(
     f(period_idx, model = model_per, constr = TRUE,
       hyper = list(prec = list(prior = SB2.prior(par_p_per, par_q_per, par_b_per)))) +
     f(region_period_idx, model = model_s_t,
-      hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) +
-    f(cell_idx, model = model_cel,
-      hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
-  
+      hyper = list(prec = list(prior = SB2.prior(par_p_s_t, par_q_s_t, par_b_s_t)))) 
+    # #f(cell_idx, model = model_cel,
+    #   hyper = list(prec = list(prior = SB2.prior(par_p_cel, par_q_cel, par_b_cel))))
+    # 
   formula_m <- formula_h
   
   nombre_formula <- c(
@@ -696,12 +796,12 @@ modelo_completo <- function(
     }
   }
   e0_resumen <- e0_resumen_sb2 %>% arrange(region, period, sex)
-  ages22    <- c(paste(seq(0, 95, 5), seq(4, 99, 5), sep = "-"), "100+") #ages18    <- c(paste(seq(0, 80, 5), seq(4, 84, 5), sep = "-"), "85+")
-  map_age22 <- setNames(c("0-4", "0-4", ages22[-1]), ages)
+  ages18    <- c(paste(seq(0, 80, 5), seq(4, 84, 5), sep = "-"), "85+")
+  map_age18 <- setNames(c("0-4", "0-4", ages18[-1]), ages)
   anios     <- as.character(seq(1980, 2020, by = 5))
   
   mx18 <- pred_sb2 %>%
-    mutate(age = unname(map_age22[agegroup])) %>%
+    mutate(age = unname(map_age18[agegroup])) %>%
     group_by(region, period, sex, age) %>%
     summarise(mx = sum(mx * population) / sum(population), .groups = "drop") %>%
     mutate(sex = ifelse(sex == "m", 1L, 2L))
@@ -818,8 +918,8 @@ modelo_completo <- function(
 }
 
 #Resultado de muestras para la familia Poisson sb2(1,1,10)
-resultado_ambos_poisson <- modelo_completo(
-  tabla_df   = "ambos",  
+resultado_poisson <- modelo_completo(
+  tabla_df   = "mujeres",  
   familia    = "poisson", 
   model_age  = "rw2",     #Mejora de RW1 a RW2
   par_p_age  = 1,
@@ -838,12 +938,14 @@ resultado_ambos_poisson <- modelo_completo(
   par_q_s_t  = 1,
   par_b_s_t  = 0.05,
   model_cel  = "iid",
-  par_p_cel  = 1,
-  par_q_cel  = 1,
-  par_b_cel  = 0.05,
-  nsamples   = 1000
+  nsamples   = 500
 )
 
+
+# model_cel  = "iid",
+# par_p_cel  = 1,
+# par_q_cel  = 1,
+# par_b_cel  = 0.05*0.05,
 # Todos los resultados de "resultados_ambos_poisson"
 summary(resultado_ambos_poisson$fit)                  # summary del fit  
 View(resultado_ambos_poisson$cobertura)               # tabla de cobertura
@@ -865,5 +967,6 @@ resultado_ambos_poisson$fit$waic$waic
 resultado_ambos_poisson$fit$mlik
 resultado_ambos_poisson$fit$cpu.used
 resultado_ambos_poisson$fit$.args$data
+
 
 

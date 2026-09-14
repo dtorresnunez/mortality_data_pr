@@ -1,0 +1,237 @@
+---
+title: "Evaluación de Complejidad y Sobreajuste en Modelos INLA"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+# Resumen del problema
+
+Supóngase una base con:
+
+- 78 regiones
+- 9 períodos
+- 19 grupos de edad
+- 2 sexos
+
+Número de observaciones potenciales:
+
+```{r}
+78 * 9 * 19 * 2
+```
+
+Resultado:
+
+```{text}
+26,676 observaciones
+```
+
+# Conceptos
+
+## Parámetros fijos
+
+Coeficientes estimados de forma tradicional.
+
+Ejemplos:
+
+```{r}
+sex
+factor(age)
+factor(period)
+```
+
+## Componentes latentes
+
+Variables latentes introducidas mediante:
+
+```{r}
+f(age, model = "rw2")
+f(period, model = "rw2")
+f(region, model = "iid")
+f(region, model = "bym2")
+f(cellidx, model = "iid")
+```
+
+## Hiperparámetros
+
+Parámetros que controlan la estructura de los efectos latentes.
+
+Ejemplos:
+
+- Precisión de RW2
+- Precisión de IID
+- Precisión espacial BYM2
+- Parámetro de mezcla BYM2
+
+## Número efectivo de parámetros
+
+Disponible mediante:
+
+```{r}
+fit$waic$p.eff
+```
+
+o
+
+```{r}
+fit$dic$p.eff
+```
+
+Es la medida más útil para evaluar complejidad efectiva y posible sobreajuste.
+
+# Tabla de complejidad de modelos
+
+| Modelo | Parámetros fijos | Componentes latentes | Hiperparámetros | p.eff esperado |
+|----------|----------:|----------:|----------:|----------:|
+| Sexo + factor(age) | 20 | 0 | 0 | ~20 |
+| Sexo + RW2(edad) | 2 | 19 | 1 | 5-15 |
+| Sexo + RW2(edad) + RW2(periodo) | 2 | 28 | 2 | 10-30 |
+| Sexo + RW2(edad) + RW2(periodo) + IID(región) | 2 | 106 | 3 | 20-60 |
+| Sexo + RW2(edad) + RW2(periodo) + BYM2(región) | 2 | 106 | 4-5 | 30-100 |
+| APC espacial completo | 2 | 106 | 4-6 | 50-150 |
+| APC espacial + interacción edad-período | 2 | 277 | 5-7 | 100-300 |
+| APC espacial + cellidx(iid) | 2 | 26,782 | 6-8 | 100-1000+ |
+| Modelo dominado por cellidx | 2 | 26,782 | 6-8 | >1000 |
+
+# Efecto del término cellidx
+
+Un caso frecuente es:
+
+```{r}
+cellidx <- 1:nrow(data)
+```
+
+y luego:
+
+```{r}
+f(cellidx, model = "iid")
+```
+
+Con las dimensiones del problema:
+
+```{text}
+78 × 9 × 19 × 2
+=
+26,676
+```
+
+el término `cellidx` añade:
+
+```{text}
+26,676 componentes latentes
+```
+
+adicionales.
+
+Sin embargo, esto no implica automáticamente:
+
+```text
+26,676 parámetros efectivos
+```
+
+porque todos los efectos son regularizados mediante una precisión común.
+
+## Situación favorable
+
+```text
+Precisión alta
+```
+
+Los efectos son fuertemente encogidos hacia cero.
+
+Consecuencia:
+
+```text
+p.eff aumenta poco
+```
+
+## Situación desfavorable
+
+```text
+Precisión baja
+```
+
+Los efectos tienen mayor libertad.
+
+Consecuencia:
+
+```text
+p.eff puede aumentar sustancialmente
+```
+
+# Interpretación práctica de p.eff
+
+| p.eff | Interpretación |
+|--------:|----------------|
+| <100 | Muy parsimonioso |
+| 100-300 | Muy razonable |
+| 300-600 | Revisar |
+| 600-1000 | Posible sobreajuste |
+| 1000-2000 | Bastante sospechoso |
+| >2000 | Riesgo elevado de memorizar ruido |
+
+# Tabla de comparación entre modelos
+
+Puede utilizarse para documentar los resultados de distintas corridas.
+
+| Modelo | WAIC | DIC | p.eff | ΔWAIC |
+|---------|---------:|---------:|---------:|---------:|
+| M0 | | | | |
+| M1 | | | | |
+| M2 | | | | |
+| M3 | | | | |
+| M4 | | | | |
+| M5 | | | | |
+
+# Criterios de evaluación
+
+| Situación observada | Interpretación |
+|--------------------|----------------|
+| WAIC disminuye y p.eff cambia poco | Evidencia a favor del modelo más complejo |
+| WAIC mejora moderadamente con incremento pequeño de p.eff | Cambio razonable |
+| WAIC mejora muy poco y p.eff aumenta mucho | Posible complejidad innecesaria |
+| Inclusión de cellidx con aumento moderado de p.eff | Puede estar capturando sobredispersión útil |
+| Inclusión de cellidx con p.eff muy elevado | Posible ajuste a ruido |
+| WAIC similar entre modelos | Preferir el modelo más simple |
+
+# Valores de referencia para este proyecto
+
+Con:
+
+- 78 regiones
+- 9 períodos
+- 19 grupos de edad
+- 2 sexos
+
+pueden utilizarse las siguientes referencias:
+
+| Rango de p.eff | Evaluación |
+|---------------:|------------|
+| 50-300 | Muy cómodo |
+| 300-500 | Aceptable |
+| 500-1000 | Revisar cuidadosamente |
+| >1000 | Examinar posible sobreajuste |
+| >2000 | Alto riesgo de sobreajuste |
+
+# Código útil
+
+```r
+fit$waic
+```
+
+```r
+fit$waic$p.eff
+```
+
+```r
+fit$dic
+```
+
+```r
+fit$dic$p.eff
+```
+
+```{r}
+fit$cpo
+```

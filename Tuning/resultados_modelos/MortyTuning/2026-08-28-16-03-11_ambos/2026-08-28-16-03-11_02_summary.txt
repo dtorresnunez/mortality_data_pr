@@ -1,0 +1,60 @@
+Time used:
+    Pre = 0.494, Running = 1.89, Post = 0.18, Total = 2.57 
+Fixed effects:
+                               mean     sd 0.025quant 0.5quant 0.975quant   mode kld
+(Intercept)                  -5.514  7.454    -20.130   -5.514      9.101 -5.514   0
+factor(sex)1:period1980-1984  0.164 13.535    -26.377    0.164     26.705  0.164   0
+factor(sex)2:period1980-1984 -0.268 13.535    -26.809   -0.268     26.273 -0.268   0
+factor(sex)1:period1985-1989  0.234 11.273    -21.871    0.234     22.339  0.234   0
+factor(sex)2:period1985-1989 -0.245 11.273    -22.350   -0.245     21.860 -0.245   0
+factor(sex)1:period1990-1994  0.299  9.350    -18.036    0.299     18.633  0.299   0
+factor(sex)2:period1990-1994 -0.226  9.350    -18.560   -0.226     18.109 -0.226   0
+factor(sex)1:period1995-1999  0.333  7.988    -15.332    0.333     15.998  0.333   0
+factor(sex)2:period1995-1999 -0.172  7.988    -15.837   -0.172     15.492 -0.172   0
+factor(sex)1:period2000-2004  0.254  7.482    -14.418    0.254     14.926  0.254   0
+factor(sex)2:period2000-2004 -0.218  7.482    -14.890   -0.218     14.454 -0.218   0
+factor(sex)1:period2005-2009  0.243  7.988    -15.421    0.243     15.908  0.243   0
+factor(sex)2:period2005-2009 -0.221  7.988    -15.886   -0.221     15.444 -0.221   0
+factor(sex)1:period2010-2014  0.203  9.350    -18.132    0.203     18.537  0.203   0
+factor(sex)2:period2010-2014 -0.232  9.350    -18.567   -0.232     18.102 -0.232   0
+factor(sex)1:period2015-2019  0.154 11.273    -21.951    0.154     22.259  0.154   0
+factor(sex)2:period2015-2019 -0.285 11.273    -22.390   -0.285     21.820 -0.285   0
+factor(sex)1:period2020-2024  0.205 13.535    -26.336    0.205     26.745  0.205   0
+factor(sex)2:period2020-2024 -0.221 13.535    -26.762   -0.221     26.320 -0.221   0
+
+Random effects:
+  Name	  Model
+    age_idx RW2 model
+   region_idx BYM2 model
+   period_idx RW2 model
+   region_period_idx IID model
+   cell_idx IID model
+
+Model hyperparameters:
+                                   mean      sd 0.025quant 0.5quant 0.975quant
+Precision for age_idx             1.810   0.594      0.885    1.729      3.196
+Precision for region_idx        248.423  78.219    129.856  236.795    434.551
+Phi for region_idx                0.684   0.229      0.168    0.737      0.977
+Precision for period_idx         53.999 133.428      1.258   20.108    320.031
+Precision for region_period_idx 862.857  87.669    704.289  858.056   1049.115
+Precision for cell_idx          584.779 105.303    403.034  576.145    816.195
+                                   mode
+Precision for age_idx             1.582
+Precision for region_idx        215.098
+Phi for region_idx                0.936
+Precision for period_idx          2.773
+Precision for region_period_idx 847.775
+Precision for cell_idx          560.239
+
+Deviance Information Criterion (DIC) ...............: 186730.72
+Deviance Information Criterion (DIC, saturated) ....: 71896.05
+Effective number of parameters .....................: -4165.60
+
+Watanabe-Akaike information criterion (WAIC) ...: 264491.42
+Effective number of parameters .................: 38234.57
+
+Marginal log-Likelihood:  -98531.76 
+ is computed 
+Posterior summaries for the linear predictor and the fitted values are computed
+(Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+
